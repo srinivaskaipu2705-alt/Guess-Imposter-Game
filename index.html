@@ -8,7 +8,7 @@
   <link rel="apple-touch-icon" href="icon.svg" />
   <link rel="manifest" href="manifest.json" />
 
-  <!-- Free PeerJS WebRTC client for multi-device sync without servers -->
+  <!-- PeerJS for Multi-Device WebRTC without a server -->
   <script src="https://cdn.jsdelivr.net/npm/peerjs@1.5.4/dist/peerjs.min.js"></script>
 
   <style>
@@ -18,7 +18,6 @@
       --accent: #38bdf8;
       --accent-hover: #0ea5e9;
       --danger: #ef4444;
-      --success: #22c55e;
       --text: #f8fafc;
       --muted: #94a3b8;
     }
@@ -204,6 +203,11 @@
       <p>Friends join by entering this 4-letter code.</p>
 
       <div class="input-group">
+        <label for="host-name-input">Your Name (Host)</label>
+        <input type="text" id="host-name-input" value="Host" />
+      </div>
+
+      <div class="input-group">
         <label for="multi-category-select">Select Category</label>
         <select id="multi-category-select" onchange="checkCustomOption('multi-category-select', 'custom-words-multi')"></select>
       </div>
@@ -220,12 +224,12 @@
       </div>
 
       <div style="background:#0f172a; padding: 12px; border-radius: 8px; margin: 12px 0;">
-        <span style="font-size:0.85rem; color:var(--muted)">Players Joined (<span id="connected-count">1</span>):</span>
+        <span style="font-size:0.85rem; color:var(--muted)">Players in Room (<span id="connected-count">1</span>):</span>
         <ul id="host-player-list" style="text-align:left; padding-left: 20px; margin: 6px 0;"></ul>
       </div>
 
       <button onclick="startMultiGame()">Start Game</button>
-      <button class="secondary" onclick="showView('view-mode')">Cancel</button>
+      <button class="secondary" onclick="resetApp()">Cancel</button>
     </div>
 
     <!-- VIEW 1D: JOIN ROOM SCREEN -->
@@ -246,16 +250,16 @@
     <!-- VIEW: CLIENT WAITING LOBBY -->
     <div id="view-client-waiting" class="hidden">
       <h2>Connected!</h2>
-      <p id="client-wait-msg">Waiting for host to launch the game...</p>
+      <p id="client-wait-msg">Waiting for the host to launch the game...</p>
     </div>
 
-    <!-- VIEW: REVEAL (USED BY BOTH SINGLE PASS & MULTI-DEVICE CLIENT) -->
+    <!-- VIEW: REVEAL -->
     <div id="view-reveal" class="hidden">
       <span class="player-tag" id="current-player-name">Player</span>
       <h2>Hold button to peek</h2>
       <div class="reveal-card">
         <span id="secret-word-display" class="hidden secret-word">---</span>
-        <span id="card-placeholder" style="color: var(--muted);">Tap and hold button below</span>
+        <span id="card-placeholder" style="color: var(--muted);">Press and hold button below</span>
       </div>
 
       <button id="peek-btn" class="secondary">Hold to Peek Word</button>
@@ -301,143 +305,75 @@
 
   <script>
     const WORD_PACKS = [
-  {
-    category: "Vehicles & Transport",
-    pairs: [
-      { civilian: "Car", imposter: "Motorcycle" },
-      { civilian: "Electric Car", imposter: "Gasoline Car" },
-      { civilian: "Taxi / Uber", imposter: "City Bus" },
-      { civilian: "F1 Race Car", imposter: "Go-Kart" },
-      { civilian: "Subway Train", imposter: "High-Speed Rail" },
-      { civilian: "Helicopter", imposter: "Airplane" },
-      { civilian: "Bicycle", imposter: "Electric Scooter" },
-      { civilian: "Cruise Ship", imposter: "Submarine" }
-    ]
-  },
-  {
-    category: "Movies & Pop Culture",
-    pairs: [
-      { civilian: "Harry Potter", imposter: "Lord of the Rings" },
-      { civilian: "Marvel (MCU)", imposter: "DC Comics" },
-      { civilian: "Star Wars", imposter: "Star Trek" },
-      { civilian: "Barbie", imposter: "Oppenheimer" },
-      { civilian: "Batman", imposter: "Spider-Man" },
-      { civilian: "Netflix", imposter: "Cinema / Theater" },
-      { civilian: "TikTok", imposter: "Instagram Reels" },
-      { civilian: "Spotify", imposter: "YouTube" }
-    ]
-  },
-  {
-    category: "Sports & Athletics",
-    pairs: [
-      { civilian: "Soccer / Football", imposter: "Basketball" },
-      { civilian: "Tennis", imposter: "Badminton" },
-      { civilian: "Cricket", imposter: "Baseball" },
-      { civilian: "Surfing", imposter: "Snowboarding" },
-      { civilian: "Boxing", imposter: "Wrestling (WWE)" },
-      { civilian: "Marathon", imposter: "100m Sprint" },
-      { civilian: "Gym / Weightlifting", imposter: "CrossFit" },
-      { civilian: "Pool / Billiards", imposter: "Bowling" }
-    ]
-  },
-  {
-    category: "Spicy / 18+ Party",
-    pairs: [
-      { civilian: "One-Night Stand", imposter: "Blind Date" },
-      { civilian: "Tinder", imposter: "Hinge" },
-      { civilian: "Strip Club", imposter: "Nightclub" },
-      { civilian: "Tequila Shots", imposter: "Espresso Shots" },
-      { civilian: "Skinny Dipping", imposter: "Hot Tub" },
-      { civilian: "Hangover", imposter: "Food Poisoning" },
-      { civilian: "Walk of Shame", imposter: "Sneaking In Late" },
-      { civilian: "Flirting", imposter: "Harassment" }
-    ]
-  },
-  {
-    category: "Food & Drinks",
-    pairs: [
-      { civilian: "Coffee", imposter: "Tea" },
-      { civilian: "Pancake", imposter: "Waffle" },
-      { civilian: "Butter", imposter: "Margarine" },
-      { civilian: "Pizza", imposter: "Flatbread" },
-      { civilian: "Burger", imposter: "Hot Dog" },
-      { civilian: "Red Wine", imposter: "Grape Juice" },
-      { civilian: "Sushi", imposter: "Sashimi" },
-      { civilian: "Cocktail", imposter: "Mocktail" }
-    ]
-  },
-  {
-    category: "Everyday Tech",
-    pairs: [
-      { civilian: "Smartphone", imposter: "Tablet" },
-      { civilian: "Laptop", imposter: "Desktop PC" },
-      { civilian: "Headphones", imposter: "Earbuds" },
-      { civilian: "Smartwatch", imposter: "Fitness Tracker" },
-      { civilian: "Wi-Fi", imposter: "Mobile 5G" },
-      { civilian: "PlayStation", imposter: "Xbox" }
-    ]
-  },
-  {
-    category: "Animals & Nature",
-    pairs: [
-      { civilian: "Dog", imposter: "Wolf" },
-      { civilian: "Lion", imposter: "Tiger" },
-      { civilian: "Dolphin", imposter: "Shark" },
-      { civilian: "Crocodile", imposter: "Alligator" },
-      { civilian: "Butterfly", imposter: "Moth" },
-      { civilian: "Frog", imposter: "Toad" },
-      { civilian: "Penguin", imposter: "Puffin" },
-      { civilian: "Bee", imposter: "Wasp" }
-    ]
-  },
-  {
-    category: "Work & School",
-    pairs: [
-      { civilian: "Zoom Call", imposter: "In-Person Meeting" },
-      { civilian: "Boss", imposter: "Intern" },
-      { civilian: "Homework", imposter: "Overtime Work" },
-      { civilian: "Final Exam", imposter: "Pop Quiz" },
-      { civilian: "Whiteboard", imposter: "Chalkboard" },
-      { civilian: "Ballpoint Pen", imposter: "Pencil" },
-      { civilian: "Resume / CV", imposter: "LinkedIn Profile" },
-      { civilian: "Sick Leave", imposter: "Vacation Day" }
-    ]
-  },
-  {
-    category: "Travel & Places",
-    pairs: [
-      { civilian: "Hotel", imposter: "Airbnb" },
-      { civilian: "Passport", imposter: "Driver's License" },
-      { civilian: "Beach Vacation", imposter: "Mountain Hike" },
-      { civilian: "Airport Security", imposter: "Border Checkpoint" },
-      { civilian: "Suitcase", imposter: "Backpack" },
-      { civilian: "Amusement Park", imposter: "Water Park" },
-      { civilian: "Museum", imposter: "Art Gallery" }
-    ]
-  },
-  {
-    category: "Gaming & Geek Culture",
-    pairs: [
-      { civilian: "Minecraft", imposter: "Roblox" },
-      { civilian: "Fortnite", imposter: "Call of Duty" },
-      { civilian: "Pokemon", imposter: "Digimon" },
-      { civilian: "Nintendo Switch", imposter: "Steam Deck" },
-      { civilian: "Keyboard & Mouse", imposter: "Controller / Gamepad" },
-      { civilian: "Board Game", imposter: "Card Game" },
-      { civilian: "Dungeons & Dragons", imposter: "Chess" }
-    ]
-  },
-  {
-    category: "Custom Word Pair",
-    isCustom: true
-  }
-];
+      {
+        category: "Vehicles & Transport",
+        pairs: [
+          { civilian: "Car", imposter: "Motorcycle" },
+          { civilian: "Electric Car", imposter: "Gasoline Car" },
+          { civilian: "Taxi / Uber", imposter: "City Bus" },
+          { civilian: "F1 Race Car", imposter: "Go-Kart" },
+          { civilian: "Subway Train", imposter: "High-Speed Rail" },
+          { civilian: "Helicopter", imposter: "Airplane" },
+          { civilian: "Bicycle", imposter: "Electric Scooter" },
+          { civilian: "Cruise Ship", imposter: "Submarine" }
+        ]
+      },
+      {
+        category: "Movies & Pop Culture",
+        pairs: [
+          { civilian: "Harry Potter", imposter: "Lord of the Rings" },
+          { civilian: "Marvel (MCU)", imposter: "DC Comics" },
+          { civilian: "Star Wars", imposter: "Star Trek" },
+          { civilian: "Barbie", imposter: "Oppenheimer" },
+          { civilian: "Batman", imposter: "Spider-Man" },
+          { civilian: "Netflix", imposter: "Cinema / Theater" },
+          { civilian: "TikTok", imposter: "Instagram Reels" },
+          { civilian: "Spotify", imposter: "YouTube" }
+        ]
+      },
+      {
+        category: "Sports & Athletics",
+        pairs: [
+          { civilian: "Soccer / Football", imposter: "Basketball" },
+          { civilian: "Tennis", imposter: "Badminton" },
+          { civilian: "Cricket", imposter: "Baseball" },
+          { civilian: "Surfing", imposter: "Snowboarding" },
+          { civilian: "Boxing", imposter: "Wrestling (WWE)" },
+          { civilian: "Marathon", imposter: "100m Sprint" },
+          { civilian: "Gym / Weightlifting", imposter: "CrossFit" },
+          { civilian: "Pool / Billiards", imposter: "Bowling" }
+        ]
+      },
+      {
+        category: "Food & Drinks",
+        pairs: [
+          { civilian: "Coffee", imposter: "Tea" },
+          { civilian: "Pancake", imposter: "Waffle" },
+          { civilian: "Butter", imposter: "Margarine" },
+          { civilian: "Pizza", imposter: "Flatbread" },
+          { civilian: "Burger", imposter: "Hot Dog" },
+          { civilian: "Red Wine", imposter: "Grape Juice" }
+        ]
+      },
+      {
+        category: "Everyday Tech",
+        pairs: [
+          { civilian: "Smartphone", imposter: "Tablet" },
+          { civilian: "Laptop", imposter: "Desktop PC" },
+          { civilian: "Headphones", imposter: "Earbuds" },
+          { civilian: "Smartwatch", imposter: "Fitness Tracker" }
+        ]
+      },
+      {
+        category: "Custom Word Pair",
+        isCustom: true
+      }
+    ];
 
     let isMulti = false;
     let isHost = false;
     let peer = null;
     let hostConn = null;
-    let clientConnections = [];
     let hostPlayers = [];
 
     let gameState = { players: [], currentIndex: 0, activePair: null };
@@ -455,13 +391,20 @@
     });
 
     function checkCustomOption(selectId, wrapperId) {
-      const isCustom = WORD_PACKS[document.getElementById(selectId).value].isCustom;
+      const selectedIndex = parseInt(document.getElementById(selectId).value, 10);
+      const isCustom = WORD_PACKS[selectedIndex]?.isCustom || false;
       document.getElementById(wrapperId).classList.toggle("hidden", !isCustom);
     }
 
     function showView(viewId) {
-      ["view-mode", "view-single-setup", "view-multi-choice", "view-host-lobby", "view-join", "view-client-waiting", "view-handoff", "view-reveal", "view-play", "view-vote", "view-result"].forEach(id => {
-        document.getElementById(id).classList.toggle("hidden", id !== viewId);
+      const views = [
+        "view-mode", "view-single-setup", "view-multi-choice", 
+        "view-host-lobby", "view-join", "view-client-waiting", 
+        "view-handoff", "view-reveal", "view-play", "view-vote", "view-result"
+      ];
+      views.forEach(id => {
+        const el = document.getElementById(id);
+        if (el) el.classList.toggle("hidden", id !== viewId);
       });
     }
 
@@ -480,8 +423,10 @@
       const names = document.getElementById("single-players-input").value.split(",").map(n => n.trim()).filter(Boolean);
       if (names.length < 3) return alert("Enter at least 3 players.");
 
-      const pack = WORD_PACKS[document.getElementById("category-select").value];
+      const selectedIndex = parseInt(document.getElementById("category-select").value, 10);
+      const pack = WORD_PACKS[selectedIndex];
       let selectedPair;
+
       if (pack.isCustom) {
         const civ = document.getElementById("custom-civ-single").value.trim();
         const imp = document.getElementById("custom-imp-single").value.trim();
@@ -525,14 +470,15 @@
         } else {
           startCluePhase();
         }
+      } else if (isHost) {
+        startCluePhase();
       } else {
-        // Multi-device client clicked continue
         showView("view-client-waiting");
-        document.getElementById("client-wait-msg").textContent = "Word memorized! Join the group discussion.";
+        document.getElementById("client-wait-msg").textContent = "Word memorized! Join the clue round with your friends.";
       }
     }
 
-    /* ================= MULTI-DEVICE LOGIC (WebRTC) ================= */
+    /* ================= MULTI-DEVICE LOGIC ================= */
     function generateRoomCode() {
       const letters = "ABCDEFGHJKLMNPQRSTUVWXYZ";
       let code = "";
@@ -548,15 +494,15 @@
 
       peer.on('open', () => {
         document.getElementById("host-room-code").textContent = roomCode;
-        hostPlayers = [{ name: "Host (You)", conn: null }];
+        const hostName = document.getElementById("host-name-input").value.trim() || "Host";
+        hostPlayers = [{ name: hostName, conn: null }];
         renderHostPlayers();
         showView("view-host-lobby");
       });
 
       peer.on('connection', conn => {
         conn.on('data', data => {
-          if (data.type === 'JOIN') {
-            clientConnections.push(conn);
+          if (data && data.type === 'JOIN') {
             hostPlayers.push({ name: data.name, conn: conn });
             renderHostPlayers();
           }
@@ -564,8 +510,8 @@
       });
 
       peer.on('error', err => {
-        alert("Peer connection error. Please try creating a room again.");
-        console.error(err);
+        alert("Peer connection error. Code may be taken, retrying...");
+        resetApp();
       });
     }
 
@@ -588,13 +534,14 @@
       peer = new Peer();
       peer.on('open', () => {
         hostConn = peer.connect("guess-imposter-" + code);
+        
         hostConn.on('open', () => {
           hostConn.send({ type: 'JOIN', name });
           showView("view-client-waiting");
         });
 
         hostConn.on('data', data => {
-          if (data.type === 'START_GAME') {
+          if (data && data.type === 'START_GAME') {
             document.getElementById("current-player-name").textContent = name;
             document.getElementById("secret-word-display").textContent = data.word;
             hideWord();
@@ -605,15 +552,20 @@
       });
 
       peer.on('error', () => {
-        alert("Could not connect to room. Verify the 4-letter code.");
+        alert("Could not connect to host. Make sure the 4-letter code is correct.");
       });
     }
 
     function startMultiGame() {
+      // Update host's name
+      hostPlayers[0].name = document.getElementById("host-name-input").value.trim() || "Host";
+
       if (hostPlayers.length < 3) return alert("Need at least 3 players to start.");
 
-      const pack = WORD_PACKS[document.getElementById("multi-category-select").value];
+      const selectedIndex = parseInt(document.getElementById("multi-category-select").value, 10);
+      const pack = WORD_PACKS[selectedIndex];
       let selectedPair;
+
       if (pack.isCustom) {
         const civ = document.getElementById("custom-civ-multi").value.trim();
         const imp = document.getElementById("custom-imp-multi").value.trim();
@@ -633,7 +585,7 @@
 
       // Broadcast words to joined phones
       hostPlayers.forEach((p, i) => {
-        if (p.conn) {
+        if (p.conn && p.conn.open) {
           p.conn.send({
             type: 'START_GAME',
             word: gameState.players[i].word
@@ -641,13 +593,17 @@
         }
       });
 
-      // Host views their own word or controls round directly from screen
-      startCluePhase();
+      // Host peeks their own word first
+      document.getElementById("current-player-name").textContent = gameState.players[0].name;
+      document.getElementById("secret-word-display").textContent = gameState.players[0].word;
+      hideWord();
+      document.getElementById("next-player-btn").classList.add("hidden");
+      showView("view-reveal");
     }
 
     /* ================= GAMEPLAY CONTROLS ================= */
     function showWord() {
-      if (navigator.vibrate) navigator.vibrate(40);
+      if (navigator.vibrate) navigator.vibrate(30);
       document.getElementById("secret-word-display").classList.remove("hidden");
       document.getElementById("card-placeholder").classList.add("hidden");
       document.getElementById("next-player-btn").classList.remove("hidden");
@@ -659,12 +615,12 @@
     }
 
     const peekBtn = document.getElementById("peek-btn");
-    ['mousedown', 'touchstart'].forEach(evt => {
-      peekBtn.addEventListener(evt, (e) => { e.preventDefault(); showWord(); }, { passive: false });
-    });
-    ['mouseup', 'mouseleave', 'touchend', 'touchcancel'].forEach(evt => {
-      peekBtn.addEventListener(evt, (e) => { e.preventDefault(); hideWord(); }, { passive: false });
-    });
+    peekBtn.addEventListener('mousedown', showWord);
+    peekBtn.addEventListener('touchstart', (e) => { e.preventDefault(); showWord(); });
+    peekBtn.addEventListener('mouseup', hideWord);
+    peekBtn.addEventListener('mouseleave', hideWord);
+    peekBtn.addEventListener('touchend', (e) => { e.preventDefault(); hideWord(); });
+    peekBtn.addEventListener('touchcancel', (e) => { e.preventDefault(); hideWord(); });
 
     function startCluePhase() {
       const shuffled = [...gameState.players].sort(() => Math.random() - 0.5);
