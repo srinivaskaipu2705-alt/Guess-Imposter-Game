@@ -226,8 +226,9 @@
         <input type="text" id="join-player-name" placeholder="Enter your name" />
       </div>
       <div class="input-group">
-        <label>4-Digit Room Code</label>
-        <input type="number" id="join-room-code" placeholder="e.g. 5821" pattern="[0-9]*" inputmode="numeric" />
+        <label>4-Letter Room Code</label>
+        <input type="text" id="join-room-code" placeholder="e.g. CARS" maxlength="4" style="text-transform: uppercase;"
+          autocapitalize="characters" autocomplete="off" />
       </div>
       <div id="join-status" class="status-text hidden">Connecting to host...</div>
       <button id="join-btn" onclick="joinRoom()">Connect to Host</button>
@@ -437,8 +438,13 @@
     /* ================= MULTI-DEVICE (WEBRTC) ================= */
     // Numeric 4-digit code works reliably on iPad keyboards
     function generateRoomCode() {
-      return String(Math.floor(1000 + Math.random() * 9000));
-    }
+      const letters = "ABCDEFGHJKLMNPQRSTUVWXYZ"; // omitted confusing letters like I and O
+      let code = "";
+      for (let i = 0; i < 4; i++) {
+        code += letters.charAt(Math.floor(Math.random() * letters.length));
+      }
+      return code;
+}
 
     function broadcast(data) {
       clientConnections.forEach(conn => {
@@ -496,8 +502,8 @@
 
     function joinRoom() {
       const name = document.getElementById("join-player-name").value.trim();
-      const code = document.getElementById("join-room-code").value.trim();
-      if (!name || code.length !== 4) return alert("Enter your name and the 4-digit room code.");
+      const code = document.getElementById("join-room-code").value.trim().toUpperCase();
+      if (!name || code.length !== 4) return alert("Enter your name and the 4-letter room code.");
 
       myPlayerName = name;
       const statusText = document.getElementById("join-status");
