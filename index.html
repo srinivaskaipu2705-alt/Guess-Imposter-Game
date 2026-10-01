@@ -8,7 +8,7 @@
   <link rel="apple-touch-icon" href="icon.svg" />
   <link rel="manifest" href="manifest.json" />
 
-  <!-- PeerJS for Multi-Device WebRTC without a server -->
+  <!-- PeerJS for WebRTC -->
   <script src="https://cdn.jsdelivr.net/npm/peerjs@1.5.4/dist/peerjs.min.js"></script>
 
   <style>
@@ -156,7 +156,7 @@
 
       <div class="mode-card" onclick="setupMultiMode()">
         <h3>📲 Multi-Device (Room Code)</h3>
-        <p>Each player uses their own phone and connects with a code.</p>
+        <p>Each player uses their own phone/iPad and connects with a code.</p>
       </div>
     </div>
 
@@ -188,7 +188,7 @@
       <button class="secondary" onclick="showView('view-mode')">Back</button>
     </div>
 
-    <!-- VIEW 1B: MULTI-DEVICE LOBBY CHOICE -->
+    <!-- VIEW 1B: MULTI-DEVICE CHOICE -->
     <div id="view-multi-choice" class="hidden">
       <h2>Multiplayer Room</h2>
       <button onclick="startHostLobby()">Create Room (Host)</button>
@@ -224,7 +224,7 @@
       </div>
 
       <div style="background:#0f172a; padding: 12px; border-radius: 8px; margin: 12px 0;">
-        <span style="font-size:0.85rem; color:var(--muted)">Players in Room (<span id="connected-count">1</span>):</span>
+        <span style="font-size:0.85rem; color:var(--muted)">Players Joined (<span id="connected-count">1</span>):</span>
         <ul id="host-player-list" style="text-align:left; padding-left: 20px; margin: 6px 0;"></ul>
       </div>
 
@@ -245,12 +245,6 @@
       </div>
       <button onclick="joinRoom()">Connect to Host</button>
       <button class="secondary" onclick="showView('view-multi-choice')">Back</button>
-    </div>
-
-    <!-- VIEW: CLIENT WAITING LOBBY -->
-    <div id="view-client-waiting" class="hidden">
-      <h2>Connected!</h2>
-      <p id="client-wait-msg">Waiting for the host to launch the game...</p>
     </div>
 
     <!-- VIEW: REVEAL -->
@@ -274,7 +268,7 @@
       <button onclick="confirmHandoff()">I have the phone</button>
     </div>
 
-    <!-- VIEW: PLAY / CLUES -->
+    <!-- VIEW: PLAY / CLUES (SYNCED ACROSS ALL DEVICES) -->
     <div id="view-play" class="hidden">
       <h2>Clue Round</h2>
       <p>Give 1 word or short clue describing your topic!</p>
@@ -284,18 +278,21 @@
       </div>
 
       <div class="timer-badge" id="timer-display">01:00</div>
-      <button class="secondary" onclick="toggleTimer()" id="timer-btn">Start Timer</button>
-      <button onclick="startVoting()">Go to Elimination Vote</button>
+      <div id="host-controls">
+        <button class="secondary" onclick="toggleTimer()" id="timer-btn">Start Timer</button>
+        <button onclick="hostTriggerVoting()">Go to Elimination Vote</button>
+      </div>
+      <p id="client-wait-text" class="hidden" style="color:var(--muted)">Host controls timer and round progression.</p>
     </div>
 
-    <!-- VIEW: VOTING -->
+    <!-- VIEW: VOTING (SYNCED ACROSS ALL DEVICES) -->
     <div id="view-vote" class="hidden">
       <h2>Who is the Imposter?</h2>
       <p>Debate and select who is eliminated:</p>
       <div id="vote-options"></div>
     </div>
 
-    <!-- VIEW: RESULT -->
+    <!-- VIEW: RESULT (SYNCED ACROSS ALL DEVICES) -->
     <div id="view-result" class="hidden">
       <h2 id="result-title">Result</h2>
       <p id="result-details"></p>
@@ -304,6 +301,16 @@
   </div>
 
   <script>
+    // Configuration with standard STUN server to guarantee iPad/Safari WebRTC traversal
+    const PEER_CONFIG = {
+      config: {
+        iceServers: [
+          { urls: 'stun:stun.l.google.com:19302' },
+          { urls: 'stun:stun1.l.google.com:19302' }
+        ]
+      }
+    };
+
     const WORD_PACKS = [
       {
         category: "Vehicles & Transport",
@@ -324,24 +331,7 @@
           { civilian: "Harry Potter", imposter: "Lord of the Rings" },
           { civilian: "Marvel (MCU)", imposter: "DC Comics" },
           { civilian: "Star Wars", imposter: "Star Trek" },
-          { civilian: "Barbie", imposter: "Oppenheimer" },
-          { civilian: "Batman", imposter: "Spider-Man" },
-          { civilian: "Netflix", imposter: "Cinema / Theater" },
-          { civilian: "TikTok", imposter: "Instagram Reels" },
-          { civilian: "Spotify", imposter: "YouTube" }
-        ]
-      },
-      {
-        category: "Sports & Athletics",
-        pairs: [
-          { civilian: "Soccer / Football", imposter: "Basketball" },
-          { civilian: "Tennis", imposter: "Badminton" },
-          { civilian: "Cricket", imposter: "Baseball" },
-          { civilian: "Surfing", imposter: "Snowboarding" },
-          { civilian: "Boxing", imposter: "Wrestling (WWE)" },
-          { civilian: "Marathon", imposter: "100m Sprint" },
-          { civilian: "Gym / Weightlifting", imposter: "CrossFit" },
-          { civilian: "Pool / Billiards", imposter: "Bowling" }
+          { civilian: "Barbie", imposter: "Oppenheimer" }
         ]
       },
       {
@@ -349,37 +339,23 @@
         pairs: [
           { civilian: "Coffee", imposter: "Tea" },
           { civilian: "Pancake", imposter: "Waffle" },
-          { civilian: "Butter", imposter: "Margarine" },
-          { civilian: "Pizza", imposter: "Flatbread" },
-          { civilian: "Burger", imposter: "Hot Dog" },
-          { civilian: "Red Wine", imposter: "Grape Juice" }
+          { civilian: "Pizza", imposter: "Flatbread" }
         ]
       },
-      {
-        category: "Everyday Tech",
-        pairs: [
-          { civilian: "Smartphone", imposter: "Tablet" },
-          { civilian: "Laptop", imposter: "Desktop PC" },
-          { civilian: "Headphones", imposter: "Earbuds" },
-          { civilian: "Smartwatch", imposter: "Fitness Tracker" }
-        ]
-      },
-      {
-        category: "Custom Word Pair",
-        isCustom: true
-      }
+      { category: "Custom Word Pair", isCustom: true }
     ];
 
     let isMulti = false;
     let isHost = false;
     let peer = null;
     let hostConn = null;
+    let clientConnections = [];
     let hostPlayers = [];
 
     let gameState = { players: [], currentIndex: 0, activePair: null };
     let countdown = null, secondsLeft = 60;
 
-    // Populate Category Dropdowns
+    // Populate dropdowns
     ['category-select', 'multi-category-select'].forEach(id => {
       const select = document.getElementById(id);
       WORD_PACKS.forEach((pack, idx) => {
@@ -399,8 +375,8 @@
     function showView(viewId) {
       const views = [
         "view-mode", "view-single-setup", "view-multi-choice", 
-        "view-host-lobby", "view-join", "view-client-waiting", 
-        "view-handoff", "view-reveal", "view-play", "view-vote", "view-result"
+        "view-host-lobby", "view-join", "view-handoff", "view-reveal", 
+        "view-play", "view-vote", "view-result"
       ];
       views.forEach(id => {
         const el = document.getElementById(id);
@@ -408,33 +384,19 @@
       });
     }
 
-    function setupSingleMode() {
-      isMulti = false;
-      showView("view-single-setup");
-    }
+    function setupSingleMode() { isMulti = false; showView("view-single-setup"); }
+    function setupMultiMode() { isMulti = true; showView("view-multi-choice"); }
 
-    function setupMultiMode() {
-      isMulti = true;
-      showView("view-multi-choice");
-    }
-
-    /* ================= SINGLE DEVICE LOGIC ================= */
+    /* ================= SINGLE DEVICE ================= */
     function startSingleGame() {
       const names = document.getElementById("single-players-input").value.split(",").map(n => n.trim()).filter(Boolean);
       if (names.length < 3) return alert("Enter at least 3 players.");
 
       const selectedIndex = parseInt(document.getElementById("category-select").value, 10);
       const pack = WORD_PACKS[selectedIndex];
-      let selectedPair;
-
-      if (pack.isCustom) {
-        const civ = document.getElementById("custom-civ-single").value.trim();
-        const imp = document.getElementById("custom-imp-single").value.trim();
-        if (!civ || !imp) return alert("Fill in both custom words.");
-        selectedPair = { civilian: civ, imposter: imp };
-      } else {
-        selectedPair = pack.pairs[Math.floor(Math.random() * pack.pairs.length)];
-      }
+      let selectedPair = pack.isCustom ? 
+        { civilian: document.getElementById("custom-civ-single").value.trim(), imposter: document.getElementById("custom-imp-single").value.trim() } :
+        pack.pairs[Math.floor(Math.random() * pack.pairs.length)];
 
       const imposterIndex = Math.floor(Math.random() * names.length);
       gameState.activePair = selectedPair;
@@ -470,11 +432,9 @@
         } else {
           startCluePhase();
         }
-      } else if (isHost) {
-        startCluePhase();
       } else {
-        showView("view-client-waiting");
-        document.getElementById("client-wait-msg").textContent = "Word memorized! Join the clue round with your friends.";
+        // Multi-device player ready: move straight to clue screen
+        startCluePhase();
       }
     }
 
@@ -486,16 +446,24 @@
       return code;
     }
 
+    function broadcast(data) {
+      clientConnections.forEach(conn => {
+        if (conn && conn.open) conn.send(data);
+      });
+    }
+
     function startHostLobby() {
       isHost = true;
       const roomCode = generateRoomCode();
       const peerId = "guess-imposter-" + roomCode;
-      peer = new Peer(peerId);
+      
+      peer = new Peer(peerId, PEER_CONFIG);
 
       peer.on('open', () => {
         document.getElementById("host-room-code").textContent = roomCode;
         const hostName = document.getElementById("host-name-input").value.trim() || "Host";
         hostPlayers = [{ name: hostName, conn: null }];
+        clientConnections = [];
         renderHostPlayers();
         showView("view-host-lobby");
       });
@@ -503,14 +471,18 @@
       peer.on('connection', conn => {
         conn.on('data', data => {
           if (data && data.type === 'JOIN') {
+            clientConnections.push(conn);
             hostPlayers.push({ name: data.name, conn: conn });
             renderHostPlayers();
+          } else if (data && data.type === 'VOTE_ACTION') {
+            // A client cast a vote -> resolve game and broadcast
+            resolveGame(data.eliminatedPlayer);
           }
         });
       });
 
-      peer.on('error', err => {
-        alert("Peer connection error. Code may be taken, retrying...");
+      peer.on('error', () => {
+        alert("Peer initialization error. Trying a fresh connection...");
         resetApp();
       });
     }
@@ -531,49 +503,55 @@
       const code = document.getElementById("join-room-code").value.trim().toUpperCase();
       if (!name || code.length !== 4) return alert("Enter your name and a 4-letter room code.");
 
-      peer = new Peer();
+      peer = new Peer(PEER_CONFIG);
       peer.on('open', () => {
-        hostConn = peer.connect("guess-imposter-" + code);
-        
+        hostConn = peer.connect("guess-imposter-" + code, { reliable: true });
+
         hostConn.on('open', () => {
           hostConn.send({ type: 'JOIN', name });
-          showView("view-client-waiting");
+          document.getElementById("current-player-name").textContent = name;
+          document.getElementById("card-placeholder").textContent = "Connected! Waiting for host to start...";
+          showView("view-reveal");
         });
 
         hostConn.on('data', data => {
-          if (data && data.type === 'START_GAME') {
-            document.getElementById("current-player-name").textContent = name;
+          if (!data) return;
+
+          if (data.type === 'START_GAME') {
             document.getElementById("secret-word-display").textContent = data.word;
+            document.getElementById("card-placeholder").textContent = "Press and hold button below";
             hideWord();
-            document.getElementById("next-player-btn").classList.add("hidden");
-            showView("view-reveal");
+            gameState.players = data.players;
+          } else if (data.type === 'SYNC_TURN_ORDER') {
+            renderTurnList(data.order);
+            showView("view-play");
+            document.getElementById("host-controls").classList.add("hidden");
+            document.getElementById("client-wait-text").classList.remove("hidden");
+          } else if (data.type === 'TIMER_TICK') {
+            document.getElementById("timer-display").textContent = data.text;
+          } else if (data.type === 'START_VOTING') {
+            renderVotingButtons(data.players);
+            showView("view-vote");
+          } else if (data.type === 'GAME_RESOLVED') {
+            renderResultScreen(data.title, data.details);
           }
         });
       });
 
       peer.on('error', () => {
-        alert("Could not connect to host. Make sure the 4-letter code is correct.");
+        alert("Connection failed. Check room code or Wi-Fi connection.");
       });
     }
 
     function startMultiGame() {
-      // Update host's name
       hostPlayers[0].name = document.getElementById("host-name-input").value.trim() || "Host";
-
       if (hostPlayers.length < 3) return alert("Need at least 3 players to start.");
 
       const selectedIndex = parseInt(document.getElementById("multi-category-select").value, 10);
       const pack = WORD_PACKS[selectedIndex];
-      let selectedPair;
-
-      if (pack.isCustom) {
-        const civ = document.getElementById("custom-civ-multi").value.trim();
-        const imp = document.getElementById("custom-imp-multi").value.trim();
-        if (!civ || !imp) return alert("Fill in both custom words.");
-        selectedPair = { civilian: civ, imposter: imp };
-      } else {
-        selectedPair = pack.pairs[Math.floor(Math.random() * pack.pairs.length)];
-      }
+      let selectedPair = pack.isCustom ?
+        { civilian: document.getElementById("custom-civ-multi").value.trim(), imposter: document.getElementById("custom-imp-multi").value.trim() } :
+        pack.pairs[Math.floor(Math.random() * pack.pairs.length)];
 
       const imposterIndex = Math.floor(Math.random() * hostPlayers.length);
       gameState.activePair = selectedPair;
@@ -583,17 +561,18 @@
         word: i === imposterIndex ? selectedPair.imposter : selectedPair.civilian
       }));
 
-      // Broadcast words to joined phones
+      // Send word & player roster to each connected client
       hostPlayers.forEach((p, i) => {
         if (p.conn && p.conn.open) {
           p.conn.send({
             type: 'START_GAME',
-            word: gameState.players[i].word
+            word: gameState.players[i].word,
+            players: gameState.players
           });
         }
       });
 
-      // Host peeks their own word first
+      // Host sees own word
       document.getElementById("current-player-name").textContent = gameState.players[0].name;
       document.getElementById("secret-word-display").textContent = gameState.players[0].word;
       hideWord();
@@ -601,7 +580,7 @@
       showView("view-reveal");
     }
 
-    /* ================= GAMEPLAY CONTROLS ================= */
+    /* ================= GAMEPLAY & SYNC ================= */
     function showWord() {
       if (navigator.vibrate) navigator.vibrate(30);
       document.getElementById("secret-word-display").classList.remove("hidden");
@@ -622,16 +601,26 @@
     peekBtn.addEventListener('touchend', (e) => { e.preventDefault(); hideWord(); });
     peekBtn.addEventListener('touchcancel', (e) => { e.preventDefault(); hideWord(); });
 
-    function startCluePhase() {
-      const shuffled = [...gameState.players].sort(() => Math.random() - 0.5);
+    function renderTurnList(players) {
       const list = document.getElementById("turn-order-list");
       list.innerHTML = "";
-      shuffled.forEach(p => {
+      players.forEach(p => {
         const li = document.createElement("li");
         li.textContent = p.name;
         list.appendChild(li);
       });
+    }
+
+    function startCluePhase() {
+      const shuffled = [...gameState.players].sort(() => Math.random() - 0.5);
+      renderTurnList(shuffled);
       resetTimer();
+
+      if (isHost) {
+        broadcast({ type: 'SYNC_TURN_ORDER', order: shuffled });
+        document.getElementById("host-controls").classList.remove("hidden");
+        document.getElementById("client-wait-text").classList.add("hidden");
+      }
       showView("view-play");
     }
 
@@ -647,12 +636,17 @@
           secondsLeft--;
           const mins = String(Math.floor(secondsLeft / 60)).padStart(2, '0');
           const secs = String(secondsLeft % 60).padStart(2, '0');
-          document.getElementById("timer-display").textContent = `${mins}:${secs}`;
+          const timeText = `${mins}:${secs}`;
+          document.getElementById("timer-display").textContent = timeText;
+
+          if (isHost) broadcast({ type: 'TIMER_TICK', text: timeText });
+
           if (secondsLeft <= 0) {
             clearInterval(countdown);
             countdown = null;
             if (navigator.vibrate) navigator.vibrate([100, 50, 100]);
             btn.textContent = "Time's up!";
+            if (isHost) broadcast({ type: 'TIMER_TICK', text: "Time's up!" });
           }
         }, 1000);
       }
@@ -663,35 +657,58 @@
       countdown = null;
       secondsLeft = 60;
       document.getElementById("timer-display").textContent = "01:00";
-      document.getElementById("timer-btn").textContent = "Start Timer";
+      const btn = document.getElementById("timer-btn");
+      if (btn) btn.textContent = "Start Timer";
     }
 
-    function startVoting() {
+    function hostTriggerVoting() {
       resetTimer();
+      renderVotingButtons(gameState.players);
+      showView("view-vote");
+      if (isHost) broadcast({ type: 'START_VOTING', players: gameState.players });
+    }
+
+    function renderVotingButtons(players) {
       const container = document.getElementById("vote-options");
       container.innerHTML = "";
-      gameState.players.forEach(p => {
+      players.forEach(p => {
         const btn = document.createElement("button");
         btn.textContent = `Eliminate ${p.name}`;
         btn.className = "secondary";
-        btn.onclick = () => resolveGame(p);
+        btn.onclick = () => {
+          if (!isMulti || isHost) {
+            resolveGame(p);
+          } else {
+            // Client sends vote to host
+            hostConn.send({ type: 'VOTE_ACTION', eliminatedPlayer: p });
+          }
+        };
         container.appendChild(btn);
       });
-      showView("view-vote");
     }
 
     function resolveGame(eliminatedPlayer) {
-      const title = document.getElementById("result-title");
-      const details = document.getElementById("result-details");
       const imposter = gameState.players.find(p => p.isImposter);
+      let title, details;
 
       if (eliminatedPlayer.isImposter) {
-        title.textContent = "🎉 Civilians Win!";
-        details.innerHTML = `You voted out the imposter: <strong>${imposter.name}</strong>!<br><br>Civilian Word: <strong>${gameState.activePair.civilian}</strong><br>Imposter Word: <strong>${gameState.activePair.imposter}</strong>`;
+        title = "🎉 Civilians Win!";
+        details = `You caught the imposter: <strong>${imposter.name}</strong>!<br><br>Civilian Word: <strong>${gameState.activePair.civilian}</strong><br>Imposter Word: <strong>${gameState.activePair.imposter}</strong>`;
       } else {
-        title.textContent = "🕵️ Imposter Wins!";
-        details.innerHTML = `<strong>${eliminatedPlayer.name}</strong> was innocent!<br>The real imposter was <strong>${imposter.name}</strong>.<br><br>Civilian Word: <strong>${gameState.activePair.civilian}</strong><br>Imposter Word: <strong>${gameState.activePair.imposter}</strong>`;
+        title = "🕵️ Imposter Wins!";
+        details = `<strong>${eliminatedPlayer.name}</strong> was innocent!<br>The real imposter was <strong>${imposter.name}</strong>.<br><br>Civilian Word: <strong>${gameState.activePair.civilian}</strong><br>Imposter Word: <strong>${gameState.activePair.imposter}</strong>`;
       }
+
+      renderResultScreen(title, details);
+
+      if (isHost) {
+        broadcast({ type: 'GAME_RESOLVED', title, details });
+      }
+    }
+
+    function renderResultScreen(title, details) {
+      document.getElementById("result-title").textContent = title;
+      document.getElementById("result-details").innerHTML = details;
       showView("view-result");
     }
 
