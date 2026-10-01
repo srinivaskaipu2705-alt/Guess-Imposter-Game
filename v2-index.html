@@ -1,0 +1,443 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1.0, user-scalable=no" />
+  <title>Undercover / Imposter Party Game</title>
+  <style>
+    :root {
+      --bg: #0f172a;
+      --card-bg: #1e293b;
+      --accent: #38bdf8;
+      --accent-hover: #0ea5e9;
+      --danger: #ef4444;
+      --text: #f8fafc;
+      --muted: #94a3b8;
+    }
+    * { 
+      box-sizing: border-box; 
+      font-family: -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, sans-serif;
+      -webkit-tap-highlight-color: transparent;
+    }
+    body {
+      background: var(--bg);
+      color: var(--text);
+      display: flex;
+      justify-content: center;
+      align-items: center;
+      min-height: 100vh;
+      margin: 0;
+      padding: 16px;
+    }
+    .container {
+      width: 100%;
+      max-width: 420px;
+      background: var(--card-bg);
+      border-radius: 16px;
+      padding: 24px;
+      box-shadow: 0 10px 25px rgba(0,0,0,0.5);
+      text-align: center;
+    }
+    h1 { margin-top: 0; font-size: 1.6rem; color: var(--accent); }
+    h2 { font-size: 1.25rem; margin-bottom: 8px; }
+    p { color: var(--muted); line-height: 1.5; font-size: 0.95rem; }
+    .hidden { display: none !important; }
+
+    button {
+      background: var(--accent);
+      color: #000;
+      border: none;
+      padding: 14px 20px;
+      font-size: 1rem;
+      font-weight: 600;
+      border-radius: 10px;
+      cursor: pointer;
+      width: 100%;
+      margin-top: 12px;
+      transition: background 0.2s ease, transform 0.1s ease;
+      touch-action: manipulation;
+    }
+    button:active { background: var(--accent-hover); transform: scale(0.98); }
+    button.secondary { background: #334155; color: var(--text); }
+    button.danger { background: var(--danger); color: white; }
+
+    .input-group { text-align: left; margin-bottom: 14px; }
+    label { font-size: 0.85rem; color: var(--muted); display: block; margin-bottom: 4px; }
+    input, select {
+      width: 100%;
+      padding: 10px 12px;
+      border-radius: 8px;
+      background: #0f172a;
+      border: 1px solid #334155;
+      color: white;
+      font-size: 1rem;
+    }
+
+    .reveal-card {
+      border: 2px dashed #475569;
+      border-radius: 12px;
+      padding: 30px 15px;
+      margin: 20px 0;
+      user-select: none;
+      -webkit-user-select: none;
+      background: #111827;
+      min-height: 110px;
+      display: flex;
+      align-items: center;
+      justify-content: center;
+    }
+    .secret-word {
+      font-size: 1.9rem;
+      font-weight: 800;
+      color: var(--accent);
+      text-transform: uppercase;
+      letter-spacing: 1px;
+    }
+    .player-tag {
+      display: inline-block;
+      padding: 6px 14px;
+      background: #334155;
+      border-radius: 20px;
+      margin-bottom: 12px;
+      font-size: 1rem;
+      font-weight: 600;
+    }
+    .vote-list button { margin-top: 8px; }
+    .timer-badge {
+      font-size: 2rem;
+      font-weight: bold;
+      color: var(--accent);
+      margin: 10px 0;
+      font-variant-numeric: tabular-nums;
+    }
+    .peek-hold-btn {
+      user-select: none;
+      -webkit-user-select: none;
+      -webkit-touch-callout: none;
+    }
+  </style>
+</head>
+<body>
+
+  <div class="container">
+    <!-- VIEW 1: LOBBY -->
+    <div id="view-lobby">
+      <h1>Word Imposter</h1>
+      <p>Pass the phone to reveal your word. 1 player will have a slightly different topic!</p>
+      
+      <div class="input-group">
+        <label for="category-select">Select Category</label>
+        <select id="category-select" onchange="checkCustomOption()"></select>
+      </div>
+
+      <div id="custom-words-wrapper" class="hidden">
+        <div class="input-group">
+          <label>Majority Word (Civilians)</label>
+          <input type="text" id="custom-civilian" placeholder="e.g. Car" />
+        </div>
+        <div class="input-group">
+          <label>Imposter Word</label>
+          <input type="text" id="custom-imposter" placeholder="e.g. Motorcycle" />
+        </div>
+      </div>
+
+      <div class="input-group">
+        <label for="players-input">Player Names (comma-separated)</label>
+        <input type="text" id="players-input" value="Alex, Jordan, Sam, Taylor" />
+      </div>
+
+      <button onclick="startGame()">Start Game</button>
+    </div>
+
+    <!-- VIEW 2: HANDOFF CONFIRMATION -->
+    <div id="view-handoff" class="hidden">
+      <p>Pass the phone to:</p>
+      <div class="player-tag" id="handoff-player-name" style="font-size: 1.3rem;">Player</div>
+      <p>Make sure nobody else is looking at the screen before continuing.</p>
+      <button onclick="confirmHandoff()">I have the phone</button>
+    </div>
+
+    <!-- VIEW 3: PASS & REVEAL -->
+    <div id="view-reveal" class="hidden">
+      <span class="player-tag" id="current-player-name">Player Name</span>
+      <h2>Hold button to peek</h2>
+      <p>Keep pressed to see your word. Release when done!</p>
+
+      <div class="reveal-card">
+        <span id="secret-word-display" class="hidden secret-word">---</span>
+        <span id="card-placeholder" style="color: var(--muted);">Tap and hold button below</span>
+      </div>
+
+      <button id="peek-btn" class="secondary peek-hold-btn">
+        Hold to Peek Word
+      </button>
+
+      <button id="next-player-btn" onclick="nextPlayer()" class="hidden">Next Player</button>
+    </div>
+
+    <!-- VIEW 4: PLAY / CLUES -->
+    <div id="view-play" class="hidden">
+      <h2>Clue Round</h2>
+      <p>Give 1 word or short clue describing your topic. Do not say the word itself!</p>
+      
+      <div style="background:#0f172a; padding: 12px; border-radius: 8px; margin: 15px 0;">
+        <span style="color: var(--muted); font-size: 0.85rem;">Turn Order:</span>
+        <ol id="turn-order-list" style="text-align: left; padding-left: 24px; line-height: 1.8; margin-top: 8px; margin-bottom: 0;"></ol>
+      </div>
+
+      <div class="timer-badge" id="timer-display">01:00</div>
+      <button class="secondary" onclick="toggleTimer()" id="timer-btn">Start Timer</button>
+      <button onclick="startVoting()">Go to Elimination Vote</button>
+    </div>
+
+    <!-- VIEW 5: VOTING -->
+    <div id="view-vote" class="hidden">
+      <h2>Who is the Imposter?</h2>
+      <p>Debate and select the player voted out by the group:</p>
+      <div id="vote-options" class="vote-list"></div>
+    </div>
+
+    <!-- VIEW 6: RESULTS -->
+    <div id="view-result" class="hidden">
+      <h2 id="result-title">Result</h2>
+      <p id="result-details"></p>
+      <button onclick="resetGame()">Play Again</button>
+    </div>
+  </div>
+
+  <script>
+    const WORD_PACKS = [
+      {
+        category: "Vehicles & Transport",
+        pairs: [
+          { civilian: "Car", imposter: "Motorcycle" },
+          { civilian: "Electric Car", imposter: "Gasoline Car" },
+          { civilian: "Taxi / Uber", imposter: "City Bus" },
+          { civilian: "F1 Race Car", imposter: "Go-Kart" },
+          { civilian: "Subway Train", imposter: "High-Speed Rail" },
+          { civilian: "Helicopter", imposter: "Airplane" },
+          { civilian: "Bicycle", imposter: "Electric Scooter" },
+          { civilian: "Boat", imposter: "Submarine" }
+        ]
+      },
+      {
+        category: "Food & Drinks",
+        pairs: [
+          { civilian: "Coffee", imposter: "Tea" },
+          { civilian: "Pancake", imposter: "Waffle" },
+          { civilian: "Butter", imposter: "Margarine" },
+          { civilian: "Pizza", imposter: "Flatbread" },
+          { civilian: "Burger", imposter: "Sandwich" }
+        ]
+      },
+      {
+        category: "Everyday Tech",
+        pairs: [
+          { civilian: "Smartphone", imposter: "Tablet" },
+          { civilian: "Laptop", imposter: "Desktop PC" },
+          { civilian: "Headphones", imposter: "Earbuds" },
+          { civilian: "Smartwatch", imposter: "Fitness Tracker" }
+        ]
+      },
+      {
+        category: "Custom Word Pair",
+        isCustom: true
+      }
+    ];
+
+    let gameState = {
+      players: [],
+      currentIndex: 0,
+      activePair: null
+    };
+
+    let countdown = null;
+    let secondsLeft = 60;
+
+    // Populate categories
+    const categorySelect = document.getElementById("category-select");
+    WORD_PACKS.forEach((pack, idx) => {
+      const opt = document.createElement("option");
+      opt.value = idx;
+      opt.textContent = pack.category;
+      categorySelect.appendChild(opt);
+    });
+
+    function checkCustomOption() {
+      const isCustom = WORD_PACKS[categorySelect.value].isCustom;
+      document.getElementById("custom-words-wrapper").classList.toggle("hidden", !isCustom);
+    }
+
+    function showView(viewId) {
+      ["view-lobby", "view-handoff", "view-reveal", "view-play", "view-vote", "view-result"].forEach(id => {
+        document.getElementById(id).classList.toggle("hidden", id !== viewId);
+      });
+    }
+
+    function startGame() {
+      const rawNames = document.getElementById("players-input").value;
+      const names = rawNames.split(",").map(n => n.trim()).filter(n => n.length > 0);
+
+      if (names.length < 3) {
+        alert("Enter at least 3 player names.");
+        return;
+      }
+
+      const pack = WORD_PACKS[categorySelect.value];
+      let selectedPair;
+
+      if (pack.isCustom) {
+        const civ = document.getElementById("custom-civilian").value.trim();
+        const imp = document.getElementById("custom-imposter").value.trim();
+        if (!civ || !imp) {
+          alert("Please fill in both custom words.");
+          return;
+        }
+        selectedPair = { civilian: civ, imposter: imp };
+      } else {
+        selectedPair = pack.pairs[Math.floor(Math.random() * pack.pairs.length)];
+      }
+
+      const imposterIndex = Math.floor(Math.random() * names.length);
+
+      gameState.activePair = selectedPair;
+      gameState.players = names.map((name, i) => ({
+        name,
+        isImposter: i === imposterIndex,
+        word: i === imposterIndex ? selectedPair.imposter : selectedPair.civilian
+      }));
+
+      gameState.currentIndex = 0;
+      promptHandoff();
+    }
+
+    function promptHandoff() {
+      document.getElementById("handoff-player-name").textContent = gameState.players[gameState.currentIndex].name;
+      showView("view-handoff");
+    }
+
+    function confirmHandoff() {
+      const p = gameState.players[gameState.currentIndex];
+      document.getElementById("current-player-name").textContent = p.name;
+      document.getElementById("secret-word-display").textContent = p.word;
+      hideWord();
+      document.getElementById("next-player-btn").classList.add("hidden");
+      showView("view-reveal");
+    }
+
+    function showWord() {
+      if (navigator.vibrate) navigator.vibrate(40);
+      document.getElementById("secret-word-display").classList.remove("hidden");
+      document.getElementById("card-placeholder").classList.add("hidden");
+      document.getElementById("next-player-btn").classList.remove("hidden");
+    }
+
+    function hideWord() {
+      document.getElementById("secret-word-display").classList.add("hidden");
+      document.getElementById("card-placeholder").classList.remove("hidden");
+    }
+
+    // Attach reliable mobile/desktop peek listeners
+    const peekBtn = document.getElementById("peek-btn");
+    ['mousedown', 'touchstart'].forEach(evt => {
+      peekBtn.addEventListener(evt, (e) => {
+        e.preventDefault();
+        showWord();
+      }, { passive: false });
+    });
+
+    ['mouseup', 'mouseleave', 'touchend', 'touchcancel'].forEach(evt => {
+      peekBtn.addEventListener(evt, (e) => {
+        e.preventDefault();
+        hideWord();
+      }, { passive: false });
+    });
+
+    function nextPlayer() {
+      gameState.currentIndex++;
+      if (gameState.currentIndex < gameState.players.length) {
+        promptHandoff();
+      } else {
+        startCluePhase();
+      }
+    }
+
+    function startCluePhase() {
+      const shuffled = [...gameState.players].sort(() => Math.random() - 0.5);
+      const list = document.getElementById("turn-order-list");
+      list.innerHTML = "";
+      shuffled.forEach(p => {
+        const li = document.createElement("li");
+        li.textContent = p.name;
+        list.appendChild(li);
+      });
+      resetTimer();
+      showView("view-play");
+    }
+
+    function toggleTimer() {
+      const btn = document.getElementById("timer-btn");
+      if (countdown) {
+        clearInterval(countdown);
+        countdown = null;
+        btn.textContent = "Resume Timer";
+      } else {
+        btn.textContent = "Pause Timer";
+        countdown = setInterval(() => {
+          secondsLeft--;
+          const mins = String(Math.floor(secondsLeft / 60)).padStart(2, '0');
+          const secs = String(secondsLeft % 60).padStart(2, '0');
+          document.getElementById("timer-display").textContent = `${mins}:${secs}`;
+          if (secondsLeft <= 0) {
+            clearInterval(countdown);
+            countdown = null;
+            if (navigator.vibrate) navigator.vibrate([100, 50, 100]);
+            btn.textContent = "Time's up!";
+          }
+        }, 1000);
+      }
+    }
+
+    function resetTimer() {
+      if (countdown) clearInterval(countdown);
+      countdown = null;
+      secondsLeft = 60;
+      document.getElementById("timer-display").textContent = "01:00";
+      document.getElementById("timer-btn").textContent = "Start Timer";
+    }
+
+    function startVoting() {
+      resetTimer();
+      const container = document.getElementById("vote-options");
+      container.innerHTML = "";
+      gameState.players.forEach(p => {
+        const btn = document.createElement("button");
+        btn.textContent = `Eliminate ${p.name}`;
+        btn.className = "secondary";
+        btn.onclick = () => resolveGame(p);
+        container.appendChild(btn);
+      });
+      showView("view-vote");
+    }
+
+    function resolveGame(eliminatedPlayer) {
+      const title = document.getElementById("result-title");
+      const details = document.getElementById("result-details");
+      const imposter = gameState.players.find(p => p.isImposter);
+
+      if (eliminatedPlayer.isImposter) {
+        title.textContent = "🎉 Civilians Win!";
+        details.innerHTML = `You voted out the imposter: <strong>${imposter.name}</strong>!<br><br>Civilian Word: <strong>${gameState.activePair.civilian}</strong><br>Imposter Word: <strong>${gameState.activePair.imposter}</strong>`;
+      } else {
+        title.textContent = "🕵️ Imposter Wins!";
+        details.innerHTML = `<strong>${eliminatedPlayer.name}</strong> was innocent!<br>The imposter was <strong>${imposter.name}</strong>.<br><br>Civilian Word: <strong>${gameState.activePair.civilian}</strong><br>Imposter Word: <strong>${gameState.activePair.imposter}</strong>`;
+      }
+      showView("view-result");
+    }
+
+    function resetGame() {
+      showView("view-lobby");
+    }
+  </script>
+</body>
+</html>
