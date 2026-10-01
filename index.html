@@ -8,7 +8,7 @@
   <link rel="apple-touch-icon" href="icon.svg" />
   <link rel="manifest" href="manifest.json" />
 
-  <!-- PeerJS for Multi-Device WebRTC -->
+  <!-- PeerJS for WebRTC -->
   <script src="https://cdn.jsdelivr.net/npm/peerjs@1.5.4/dist/peerjs.min.js"></script>
 
   <style>
@@ -90,7 +90,7 @@
       user-select: none;
       -webkit-user-select: none;
       background: #111827;
-      min-height: 105px;
+      min-height: 110px;
       display: flex;
       align-items: center;
       justify-content: center;
@@ -164,7 +164,7 @@
 
       <div class="mode-card" onclick="setupMultiMode()">
         <h3>📲 Multi-Device (Room Code)</h3>
-        <p>Each player connects via phone or iPad using a code.</p>
+        <p>Each player connects via phone or iPad using a 4-letter code.</p>
       </div>
     </div>
 
@@ -197,7 +197,7 @@
     <div id="view-host-lobby" class="hidden">
       <h2>Room Code:</h2>
       <div class="room-badge" id="host-room-code">----</div>
-      <p>Friends enter this 4-digit code on their phones/iPads.</p>
+      <p>Friends enter this 4-letter code on their phone or iPad.</p>
 
       <div class="input-group">
         <label for="host-name-input">Your Name (Host)</label>
@@ -227,8 +227,7 @@
       </div>
       <div class="input-group">
         <label>4-Letter Room Code</label>
-        <input type="text" id="join-room-code" placeholder="e.g. CARS" maxlength="4" style="text-transform: uppercase;"
-          autocapitalize="characters" autocomplete="off" />
+        <input type="text" id="join-room-code" placeholder="e.g. CARS" maxlength="4" style="text-transform: uppercase;" autocapitalize="characters" autocomplete="off" />
       </div>
       <div id="join-status" class="status-text hidden">Connecting to host...</div>
       <button id="join-btn" onclick="joinRoom()">Connect to Host</button>
@@ -245,7 +244,15 @@
       </div>
 
       <button id="peek-btn" class="secondary">Hold to Peek Word</button>
-      <button id="next-player-btn" onclick="handleNextClick()" class="hidden">Continue</button>
+
+      <!-- Single Device Next Button -->
+      <button id="single-next-btn" onclick="nextSinglePlayer()" class="hidden">Pass to Next Player</button>
+
+      <!-- Host Multi-Device Trigger Button -->
+      <button id="host-discuss-btn" onclick="startDiscussionAndVoting()" class="hidden">Start Discussion & Vote</button>
+
+      <!-- Client Status Badge -->
+      <p id="client-wait-badge" class="hidden status-text">Word memorized! Wait for host to start discussion.</p>
     </div>
 
     <!-- VIEW: HANDOFF FOR SINGLE DEVICE -->
@@ -256,31 +263,18 @@
       <button onclick="confirmHandoff()">I have the phone</button>
     </div>
 
-    <!-- VIEW: PLAY / CLUES (SYNCED) -->
-    <div id="view-play" class="hidden">
-      <h2>Clue Round</h2>
-      <p>Give 1 subtle clue describing your topic!</p>
-      <div style="background:#0f172a; padding: 12px; border-radius: 8px; margin: 15px 0;">
-        <span style="color: var(--muted); font-size: 0.85rem;">Turn Order:</span>
-        <ol id="turn-order-list" style="text-align: left; padding-left: 24px; line-height: 1.8; margin: 8px 0 0 0;"></ol>
-      </div>
-
-      <div class="timer-badge" id="timer-display">01:00</div>
-      <div id="host-clue-controls">
-        <button class="secondary" onclick="toggleTimer()" id="timer-btn">Start Timer</button>
-        <button onclick="hostTriggerVoting()">Go to Elimination Vote</button>
-      </div>
-      <p id="client-clue-msg" class="hidden" style="color:var(--muted)">Host controls timer and round progression.</p>
-    </div>
-
-    <!-- VIEW: VOTING (EACH PLAYER VOTES INDIVIDUALLY) -->
+    <!-- VIEW: DISCUSSION & VOTING (SYNCED ACROSS ALL PHONES) -->
     <div id="view-vote" class="hidden">
-      <h2>Who is the Imposter?</h2>
-      <p id="vote-prompt-text">Cast your vote privately on your device:</p>
+      <h2>Discussion & Voting</h2>
+      <p>Discuss clues, look for suspicious answers, and cast your vote!</p>
+      
+      <div class="timer-badge" id="timer-display">01:00</div>
+
       <div id="vote-options"></div>
+
       <div id="vote-status-box" class="hidden" style="margin-top:16px;">
-        <p class="status-text">Vote submitted! Waiting for others...</p>
-        <span id="vote-progress-counter" style="color:var(--muted); font-size:0.9rem;"></span>
+        <p class="status-text">Your vote is submitted!</p>
+        <span id="vote-progress-counter" style="color:var(--muted); font-size:0.9rem;">Waiting for other players...</span>
       </div>
     </div>
 
@@ -293,7 +287,7 @@
   </div>
 
   <script>
-    // Robust WebRTC configuration compatible with iPadOS/iOS Safari
+    // WebRTC config with standard STUN server
     const PEER_CONFIG = {
       config: {
         iceServers: [
@@ -353,9 +347,7 @@
     let clientConnections = [];
     let hostPlayers = [];
 
-    // Voting tally state (tracked on host)
     let votesCast = {};
-
     let gameState = { players: [], currentIndex: 0, activePair: null };
     let countdown = null, secondsLeft = 60;
 
@@ -374,7 +366,7 @@
       const views = [
         "view-mode", "view-single-setup", "view-multi-choice", 
         "view-host-lobby", "view-join", "view-handoff", "view-reveal", 
-        "view-play", "view-vote", "view-result"
+        "view-vote", "view-result"
       ];
       views.forEach(id => {
         const el = document.getElementById(id);
@@ -416,35 +408,30 @@
       document.getElementById("current-player-name").textContent = p.name;
       document.getElementById("secret-word-display").textContent = p.word;
       hideWord();
-      document.getElementById("next-player-btn").classList.add("hidden");
+
+      document.getElementById("single-next-btn").classList.add("hidden");
+      document.getElementById("host-discuss-btn").classList.add("hidden");
+      document.getElementById("client-wait-badge").classList.add("hidden");
+
       showView("view-reveal");
     }
 
-    function handleNextClick() {
-      if (!isMulti) {
-        gameState.currentIndex++;
-        if (gameState.currentIndex < gameState.players.length) {
-          promptHandoff();
-        } else {
-          startCluePhase();
-        }
+    function nextSinglePlayer() {
+      gameState.currentIndex++;
+      if (gameState.currentIndex < gameState.players.length) {
+        promptHandoff();
       } else {
-        // Multi-device: Player confirmed their word; wait in clue room
-        document.getElementById("next-player-btn").textContent = "Ready!";
-        document.getElementById("next-player-btn").disabled = true;
+        startDiscussionAndVoting();
       }
     }
 
     /* ================= MULTI-DEVICE (WEBRTC) ================= */
-    // Numeric 4-digit code works reliably on iPad keyboards
     function generateRoomCode() {
-      const letters = "ABCDEFGHJKLMNPQRSTUVWXYZ"; // omitted confusing letters like I and O
+      const letters = "ABCDEFGHJKLMNPQRSTUVWXYZ";
       let code = "";
-      for (let i = 0; i < 4; i++) {
-        code += letters.charAt(Math.floor(Math.random() * letters.length));
-      }
+      for (let i = 0; i < 4; i++) code += letters.charAt(Math.floor(Math.random() * letters.length));
       return code;
-}
+    }
 
     function broadcast(data) {
       clientConnections.forEach(conn => {
@@ -528,28 +515,19 @@
             document.getElementById("card-placeholder").textContent = "Connected! Waiting for host to launch...";
             showView("view-reveal");
           } else if (data.type === 'START_GAME') {
-            // Receive secret word
             document.getElementById("secret-word-display").textContent = data.word;
             document.getElementById("card-placeholder").textContent = "Press and hold button below";
-            document.getElementById("next-player-btn").textContent = "I've Memorized My Word";
-            document.getElementById("next-player-btn").disabled = false;
             hideWord();
             gameState.players = data.players;
-          } else if (data.type === 'SYNC_CLUE_PHASE') {
-            // Host started clue phase -> switch iPad / phones to timer screen
-            renderTurnList(data.order);
-            document.getElementById("host-clue-controls").classList.add("hidden");
-            document.getElementById("client-clue-msg").classList.remove("hidden");
-            showView("view-play");
-          } else if (data.type === 'TIMER_TICK') {
-            document.getElementById("timer-display").textContent = data.text;
-          } else if (data.type === 'OPEN_VOTING') {
+          } else if (data.type === 'START_VOTING_PHASE') {
             renderVotingOptions(data.players);
             document.getElementById("vote-status-box").classList.add("hidden");
             document.getElementById("vote-options").classList.remove("hidden");
             showView("view-vote");
+          } else if (data.type === 'TIMER_TICK') {
+            document.getElementById("timer-display").textContent = data.text;
           } else if (data.type === 'VOTE_PROGRESS') {
-            document.getElementById("vote-progress-counter").textContent = `${data.count} of ${data.total} votes cast.`;
+            document.getElementById("vote-progress-counter").textContent = `${data.count} of ${data.total} players have voted.`;
           } else if (data.type === 'GAME_RESOLVED') {
             renderResultScreen(data.title, data.details);
           }
@@ -580,7 +558,7 @@
         word: i === imposterIndex ? selectedPair.imposter : selectedPair.civilian
       }));
 
-      // Send private role and full roster to each client
+      // Broadcast words to joined players
       hostPlayers.forEach((p, i) => {
         if (p.conn && p.conn.open) {
           p.conn.send({
@@ -591,21 +569,27 @@
         }
       });
 
-      // Host sees own word
+      // Host UI
       document.getElementById("current-player-name").textContent = myPlayerName;
       document.getElementById("secret-word-display").textContent = gameState.players[0].word;
-      document.getElementById("next-player-btn").textContent = "Start Clue Round";
-      document.getElementById("next-player-btn").disabled = false;
       hideWord();
+      document.getElementById("single-next-btn").classList.add("hidden");
+      document.getElementById("client-wait-badge").classList.add("hidden");
+      document.getElementById("host-discuss-btn").classList.remove("hidden");
       showView("view-reveal");
     }
 
-    /* ================= GAMEPLAY & SYNC ================= */
+    /* ================= REVEAL CONTROLS ================= */
     function showWord() {
       if (navigator.vibrate) navigator.vibrate(30);
       document.getElementById("secret-word-display").classList.remove("hidden");
       document.getElementById("card-placeholder").classList.add("hidden");
-      document.getElementById("next-player-btn").classList.remove("hidden");
+
+      if (!isMulti) {
+        document.getElementById("single-next-btn").classList.remove("hidden");
+      } else if (!isHost) {
+        document.getElementById("client-wait-badge").classList.remove("hidden");
+      }
     }
 
     function hideWord() {
@@ -615,90 +599,59 @@
 
     const peekBtn = document.getElementById("peek-btn");
     peekBtn.addEventListener('mousedown', showWord);
-    peekBtn.addEventListener('touchstart', (e) => { e.preventDefault(); showWord(); }, { passive: false });
+    peekBtn.addEventListener('touchstart', (e) => { e.preventDefault(); showWord(); });
     peekBtn.addEventListener('mouseup', hideWord);
     peekBtn.addEventListener('mouseleave', hideWord);
-    peekBtn.addEventListener('touchend', (e) => { e.preventDefault(); hideWord(); }, { passive: false });
-    peekBtn.addEventListener('touchcancel', (e) => { e.preventDefault(); hideWord(); }, { passive: false });
+    peekBtn.addEventListener('touchend', (e) => { e.preventDefault(); hideWord(); });
+    peekBtn.addEventListener('touchcancel', (e) => { e.preventDefault(); hideWord(); });
 
-    function renderTurnList(players) {
-      const list = document.getElementById("turn-order-list");
-      list.innerHTML = "";
-      players.forEach(p => {
-        const li = document.createElement("li");
-        li.textContent = p.name;
-        list.appendChild(li);
-      });
-    }
-
-    function startCluePhase() {
-      const shuffled = [...gameState.players].sort(() => Math.random() - 0.5);
-      renderTurnList(shuffled);
-      resetTimer();
-
-      if (isHost) {
-        broadcast({ type: 'SYNC_CLUE_PHASE', order: shuffled });
-        document.getElementById("host-clue-controls").classList.remove("hidden");
-        document.getElementById("client-clue-msg").classList.add("hidden");
-      }
-      showView("view-play");
-    }
-
-    function toggleTimer() {
-      const btn = document.getElementById("timer-btn");
-      if (countdown) {
-        clearInterval(countdown);
-        countdown = null;
-        btn.textContent = "Resume Timer";
-      } else {
-        btn.textContent = "Pause Timer";
-        countdown = setInterval(() => {
-          secondsLeft--;
-          const mins = String(Math.floor(secondsLeft / 60)).padStart(2, '0');
-          const secs = String(secondsLeft % 60).padStart(2, '0');
-          const timeText = `${mins}:${secs}`;
-          document.getElementById("timer-display").textContent = timeText;
-
-          if (isHost) broadcast({ type: 'TIMER_TICK', text: timeText });
-
-          if (secondsLeft <= 0) {
-            clearInterval(countdown);
-            countdown = null;
-            if (navigator.vibrate) navigator.vibrate([100, 50, 100]);
-            btn.textContent = "Time's up!";
-            if (isHost) broadcast({ type: 'TIMER_TICK', text: "Time's up!" });
-          }
-        }, 1000);
-      }
-    }
-
-    function resetTimer() {
-      if (countdown) clearInterval(countdown);
-      countdown = null;
-      secondsLeft = 60;
-      document.getElementById("timer-display").textContent = "01:00";
-      const btn = document.getElementById("timer-btn");
-      if (btn) btn.textContent = "Start Timer";
-    }
-
-    /* ================= MAJORITY VOTING LOGIC ================= */
-    function hostTriggerVoting() {
-      resetTimer();
+    /* ================= DISCUSSION & MAJORITY VOTING ================= */
+    function startDiscussionAndVoting() {
       votesCast = {};
       renderVotingOptions(gameState.players);
+      document.getElementById("vote-status-box").classList.add("hidden");
+      document.getElementById("vote-options").classList.remove("hidden");
       showView("view-vote");
-      if (isHost) broadcast({ type: 'OPEN_VOTING', players: gameState.players });
+
+      if (isHost) {
+        broadcast({ type: 'START_VOTING_PHASE', players: gameState.players });
+      }
+
+      startTimer();
+    }
+
+    function startTimer() {
+      if (countdown) clearInterval(countdown);
+      secondsLeft = 60;
+      document.getElementById("timer-display").textContent = "01:00";
+
+      countdown = setInterval(() => {
+        secondsLeft--;
+        const mins = String(Math.floor(secondsLeft / 60)).padStart(2, '0');
+        const secs = String(secondsLeft % 60).padStart(2, '0');
+        const timeText = `${mins}:${secs}`;
+        document.getElementById("timer-display").textContent = timeText;
+
+        if (isHost) broadcast({ type: 'TIMER_TICK', text: timeText });
+
+        if (secondsLeft <= 0) {
+          clearInterval(countdown);
+          countdown = null;
+          document.getElementById("timer-display").textContent = "Vote Now!";
+        }
+      }, 1000);
     }
 
     function renderVotingOptions(players) {
       const container = document.getElementById("vote-options");
       container.innerHTML = "";
+
       players.forEach(p => {
         // Can't vote for yourself
-        if (p.name === myPlayerName) return;
+        if (isMulti && p.name === myPlayerName) return;
 
         const btn = document.createElement("button");
-        btn.textContent = `Vote for ${p.name}`;
+        btn.textContent = `Vote ${p.name}`;
         btn.className = "secondary";
         btn.onclick = () => submitPlayerVote(p.name);
         container.appendChild(btn);
@@ -709,7 +662,11 @@
       document.getElementById("vote-options").classList.add("hidden");
       document.getElementById("vote-status-box").classList.remove("hidden");
 
-      if (isHost) {
+      if (!isMulti) {
+        // Single device resolves directly
+        const eliminatedPlayer = gameState.players.find(p => p.name === votedForName);
+        resolveDirectly(eliminatedPlayer);
+      } else if (isHost) {
         recordVote(myPlayerName, votedForName);
       } else {
         hostConn.send({
@@ -725,11 +682,12 @@
       const count = Object.keys(votesCast).length;
       const total = gameState.players.length;
 
-      document.getElementById("vote-progress-counter").textContent = `${count} of ${total} votes cast.`;
+      document.getElementById("vote-progress-counter").textContent = `${count} of ${total} players have voted.`;
       broadcast({ type: 'VOTE_PROGRESS', count, total });
 
-      // When everyone has cast their vote, determine majority
+      // Once all players cast their vote, calculate majority
       if (count >= total) {
+        if (countdown) clearInterval(countdown);
         tallyMajorityAndResolve();
       }
     }
@@ -740,7 +698,6 @@
         tally[name] = (tally[name] || 0) + 1;
       });
 
-      // Find player with maximum votes
       let highestVotes = 0;
       let eliminatedName = null;
       for (const [name, num] of Object.entries(tally)) {
@@ -759,11 +716,26 @@
         details = `The majority voted out <strong>${eliminatedPlayer.name}</strong> (${highestVotes} votes), who was the Imposter!<br><br>Civilian Word: <strong>${gameState.activePair.civilian}</strong><br>Imposter Word: <strong>${gameState.activePair.imposter}</strong>`;
       } else {
         title = "🕵️ Imposter Wins!";
-        details = `The majority voted out innocent player <strong>${eliminatedName || 'Nobody'}</strong>!<br>The real imposter was <strong>${imposter.name}</strong>.<br><br>Civilian Word: <strong>${gameState.activePair.civilian}</strong><br>Imposter Word: <strong>${gameState.activePair.imposter}</strong>`;
+        details = `The majority eliminated innocent player <strong>${eliminatedName || 'Nobody'}</strong>!<br>The real imposter was <strong>${imposter.name}</strong>.<br><br>Civilian Word: <strong>${gameState.activePair.civilian}</strong><br>Imposter Word: <strong>${gameState.activePair.imposter}</strong>`;
       }
 
       renderResultScreen(title, details);
       broadcast({ type: 'GAME_RESOLVED', title, details });
+    }
+
+    function resolveDirectly(eliminatedPlayer) {
+      const imposter = gameState.players.find(p => p.isImposter);
+      let title, details;
+
+      if (eliminatedPlayer.isImposter) {
+        title = "🎉 Civilians Win!";
+        details = `You caught the imposter: <strong>${imposter.name}</strong>!<br><br>Civilian Word: <strong>${gameState.activePair.civilian}</strong><br>Imposter Word: <strong>${gameState.activePair.imposter}</strong>`;
+      } else {
+        title = "🕵️ Imposter Wins!";
+        details = `<strong>${eliminatedPlayer.name}</strong> was innocent!<br>The real imposter was <strong>${imposter.name}</strong>.<br><br>Civilian Word: <strong>${gameState.activePair.civilian}</strong><br>Imposter Word: <strong>${gameState.activePair.imposter}</strong>`;
+      }
+
+      renderResultScreen(title, details);
     }
 
     function renderResultScreen(title, details) {
