@@ -7,9 +7,10 @@
   <link rel="icon" type="image/svg+xml" href="icon.svg" />
   <link rel="apple-touch-icon" href="icon.svg" />
   <link rel="manifest" href="manifest.json" />
-  <meta name="apple-mobile-web-app-capable" content="yes" />
-  <meta name="apple-mobile-web-app-title" content="Imposter" />
-  <meta name="apple-mobile-web-app-status-bar-style" content="black-translucent" />
+
+  <!-- Free PeerJS WebRTC client for multi-device sync without servers -->
+  <script src="https://cdn.jsdelivr.net/npm/peerjs@1.5.4/dist/peerjs.min.js"></script>
+
   <style>
     :root {
       --bg: #0f172a;
@@ -17,6 +18,7 @@
       --accent: #38bdf8;
       --accent-hover: #0ea5e9;
       --danger: #ef4444;
+      --success: #22c55e;
       --text: #f8fafc;
       --muted: #94a3b8;
     }
@@ -37,7 +39,7 @@
     }
     .container {
       width: 100%;
-      max-width: 420px;
+      max-width: 440px;
       background: var(--card-bg);
       border-radius: 16px;
       padding: 24px;
@@ -59,7 +61,7 @@
       border-radius: 10px;
       cursor: pointer;
       width: 100%;
-      margin-top: 12px;
+      margin-top: 10px;
       transition: background 0.2s ease, transform 0.1s ease;
       touch-action: manipulation;
     }
@@ -67,7 +69,7 @@
     button.secondary { background: #334155; color: var(--text); }
     button.danger { background: var(--danger); color: white; }
 
-    .input-group { text-align: left; margin-bottom: 14px; }
+    .input-group { text-align: left; margin-bottom: 12px; }
     label { font-size: 0.85rem; color: var(--muted); display: block; margin-bottom: 4px; }
     input, select {
       width: 100%;
@@ -83,7 +85,7 @@
       border: 2px dashed #475569;
       border-radius: 12px;
       padding: 30px 15px;
-      margin: 20px 0;
+      margin: 18px 0;
       user-select: none;
       -webkit-user-select: none;
       background: #111827;
@@ -108,7 +110,6 @@
       font-size: 1rem;
       font-weight: 600;
     }
-    .vote-list button { margin-top: 8px; }
     .timer-badge {
       font-size: 2rem;
       font-weight: bold;
@@ -116,79 +117,166 @@
       margin: 10px 0;
       font-variant-numeric: tabular-nums;
     }
-    .peek-hold-btn {
-      user-select: none;
-      -webkit-user-select: none;
-      -webkit-touch-callout: none;
+    .mode-card {
+      background: #0f172a;
+      border: 1px solid #334155;
+      border-radius: 12px;
+      padding: 16px;
+      margin-bottom: 12px;
+      cursor: pointer;
+      text-align: left;
+    }
+    .mode-card:hover { border-color: var(--accent); }
+    .mode-card h3 { margin: 0 0 4px 0; color: var(--accent); }
+    .mode-card p { margin: 0; font-size: 0.85rem; }
+    .room-badge {
+      font-size: 2.2rem;
+      letter-spacing: 4px;
+      font-weight: 900;
+      color: var(--accent);
+      padding: 8px 16px;
+      background: #0f172a;
+      border-radius: 8px;
+      display: inline-block;
+      margin: 10px 0;
     }
   </style>
 </head>
 <body>
 
   <div class="container">
-    <!-- VIEW 1: LOBBY -->
-    <div id="view-lobby">
+    <!-- VIEW 0: SELECT PLAY MODE -->
+    <div id="view-mode">
       <h1>Word Imposter</h1>
-      <p>Pass the phone to reveal your word. 1 player will have a slightly different topic!</p>
-      
-      <div class="input-group">
-        <label for="category-select">Select Category</label>
-        <select id="category-select" onchange="checkCustomOption()"></select>
+      <p>Choose how you want to play:</p>
+
+      <div class="mode-card" onclick="setupSingleMode()">
+        <h3>📱 Single Device</h3>
+        <p>Pass one phone around the circle to peek words.</p>
       </div>
 
-      <div id="custom-words-wrapper" class="hidden">
+      <div class="mode-card" onclick="setupMultiMode()">
+        <h3>📲 Multi-Device (Room Code)</h3>
+        <p>Each player uses their own phone and connects with a code.</p>
+      </div>
+    </div>
+
+    <!-- VIEW 1A: SINGLE DEVICE SETUP -->
+    <div id="view-single-setup" class="hidden">
+      <h2>Pass-and-Play Setup</h2>
+      <div class="input-group">
+        <label for="category-select">Select Category</label>
+        <select id="category-select" onchange="checkCustomOption('category-select', 'custom-words-single')"></select>
+      </div>
+
+      <div id="custom-words-single" class="hidden">
         <div class="input-group">
-          <label>Majority Word (Civilians)</label>
-          <input type="text" id="custom-civilian" placeholder="e.g. Car" />
+          <label>Civilian Word</label>
+          <input type="text" id="custom-civ-single" placeholder="e.g. Car" />
         </div>
         <div class="input-group">
           <label>Imposter Word</label>
-          <input type="text" id="custom-imposter" placeholder="e.g. Motorcycle" />
+          <input type="text" id="custom-imp-single" placeholder="e.g. Motorcycle" />
         </div>
       </div>
 
       <div class="input-group">
-        <label for="players-input">Player Names (comma-separated)</label>
-        <input type="text" id="players-input" value="Alex, Jordan, Sam, Taylor" />
+        <label for="single-players-input">Players (comma-separated)</label>
+        <input type="text" id="single-players-input" value="Alex, Jordan, Sam, Taylor" />
       </div>
 
-      <button onclick="startGame()">Start Game</button>
+      <button onclick="startSingleGame()">Start Game</button>
+      <button class="secondary" onclick="showView('view-mode')">Back</button>
     </div>
 
-    <!-- VIEW 2: HANDOFF CONFIRMATION -->
-    <div id="view-handoff" class="hidden">
-      <p>Pass the phone to:</p>
-      <div class="player-tag" id="handoff-player-name" style="font-size: 1.3rem;">Player</div>
-      <p>Make sure nobody else is looking at the screen before continuing.</p>
-      <button onclick="confirmHandoff()">I have the phone</button>
+    <!-- VIEW 1B: MULTI-DEVICE LOBBY CHOICE -->
+    <div id="view-multi-choice" class="hidden">
+      <h2>Multiplayer Room</h2>
+      <button onclick="startHostLobby()">Create Room (Host)</button>
+      <button class="secondary" onclick="showView('view-join')">Join Room (Player)</button>
+      <button class="secondary" onclick="showView('view-mode')">Back</button>
     </div>
 
-    <!-- VIEW 3: PASS & REVEAL -->
+    <!-- VIEW 1C: MULTI-DEVICE HOST LOBBY -->
+    <div id="view-host-lobby" class="hidden">
+      <h2>Room Code:</h2>
+      <div class="room-badge" id="host-room-code">----</div>
+      <p>Friends join by entering this 4-letter code.</p>
+
+      <div class="input-group">
+        <label for="multi-category-select">Select Category</label>
+        <select id="multi-category-select" onchange="checkCustomOption('multi-category-select', 'custom-words-multi')"></select>
+      </div>
+
+      <div id="custom-words-multi" class="hidden">
+        <div class="input-group">
+          <label>Civilian Word</label>
+          <input type="text" id="custom-civ-multi" placeholder="e.g. Car" />
+        </div>
+        <div class="input-group">
+          <label>Imposter Word</label>
+          <input type="text" id="custom-imp-multi" placeholder="e.g. Motorcycle" />
+        </div>
+      </div>
+
+      <div style="background:#0f172a; padding: 12px; border-radius: 8px; margin: 12px 0;">
+        <span style="font-size:0.85rem; color:var(--muted)">Players Joined (<span id="connected-count">1</span>):</span>
+        <ul id="host-player-list" style="text-align:left; padding-left: 20px; margin: 6px 0;"></ul>
+      </div>
+
+      <button onclick="startMultiGame()">Start Game</button>
+      <button class="secondary" onclick="showView('view-mode')">Cancel</button>
+    </div>
+
+    <!-- VIEW 1D: JOIN ROOM SCREEN -->
+    <div id="view-join" class="hidden">
+      <h2>Join Game</h2>
+      <div class="input-group">
+        <label>Your Name</label>
+        <input type="text" id="join-player-name" placeholder="Enter your name" />
+      </div>
+      <div class="input-group">
+        <label>4-Letter Room Code</label>
+        <input type="text" id="join-room-code" placeholder="e.g. CARS" maxlength="4" style="text-transform:uppercase" />
+      </div>
+      <button onclick="joinRoom()">Connect to Host</button>
+      <button class="secondary" onclick="showView('view-multi-choice')">Back</button>
+    </div>
+
+    <!-- VIEW: CLIENT WAITING LOBBY -->
+    <div id="view-client-waiting" class="hidden">
+      <h2>Connected!</h2>
+      <p id="client-wait-msg">Waiting for host to launch the game...</p>
+    </div>
+
+    <!-- VIEW: REVEAL (USED BY BOTH SINGLE PASS & MULTI-DEVICE CLIENT) -->
     <div id="view-reveal" class="hidden">
-      <span class="player-tag" id="current-player-name">Player Name</span>
+      <span class="player-tag" id="current-player-name">Player</span>
       <h2>Hold button to peek</h2>
-      <p>Keep pressed to see your word. Release when done!</p>
-
       <div class="reveal-card">
         <span id="secret-word-display" class="hidden secret-word">---</span>
         <span id="card-placeholder" style="color: var(--muted);">Tap and hold button below</span>
       </div>
 
-      <button id="peek-btn" class="secondary peek-hold-btn">
-        Hold to Peek Word
-      </button>
-
-      <button id="next-player-btn" onclick="nextPlayer()" class="hidden">Next Player</button>
+      <button id="peek-btn" class="secondary">Hold to Peek Word</button>
+      <button id="next-player-btn" onclick="handleNextClick()" class="hidden">Continue</button>
     </div>
 
-    <!-- VIEW 4: PLAY / CLUES -->
+    <!-- VIEW: HANDOFF FOR SINGLE DEVICE -->
+    <div id="view-handoff" class="hidden">
+      <p>Pass the phone to:</p>
+      <div class="player-tag" id="handoff-player-name" style="font-size: 1.3rem;">Player</div>
+      <p>Make sure nobody else is looking.</p>
+      <button onclick="confirmHandoff()">I have the phone</button>
+    </div>
+
+    <!-- VIEW: PLAY / CLUES -->
     <div id="view-play" class="hidden">
       <h2>Clue Round</h2>
-      <p>Give 1 word or short clue describing your topic. Do not say the word itself!</p>
-      
+      <p>Give 1 word or short clue describing your topic!</p>
       <div style="background:#0f172a; padding: 12px; border-radius: 8px; margin: 15px 0;">
         <span style="color: var(--muted); font-size: 0.85rem;">Turn Order:</span>
-        <ol id="turn-order-list" style="text-align: left; padding-left: 24px; line-height: 1.8; margin-top: 8px; margin-bottom: 0;"></ol>
+        <ol id="turn-order-list" style="text-align: left; padding-left: 24px; line-height: 1.8; margin: 8px 0 0 0;"></ol>
       </div>
 
       <div class="timer-badge" id="timer-display">01:00</div>
@@ -196,18 +284,18 @@
       <button onclick="startVoting()">Go to Elimination Vote</button>
     </div>
 
-    <!-- VIEW 5: VOTING -->
+    <!-- VIEW: VOTING -->
     <div id="view-vote" class="hidden">
       <h2>Who is the Imposter?</h2>
-      <p>Debate and select the player voted out by the group:</p>
-      <div id="vote-options" class="vote-list"></div>
+      <p>Debate and select who is eliminated:</p>
+      <div id="vote-options"></div>
     </div>
 
-    <!-- VIEW 6: RESULTS -->
+    <!-- VIEW: RESULT -->
     <div id="view-result" class="hidden">
       <h2 id="result-title">Result</h2>
       <p id="result-details"></p>
-      <button onclick="resetGame()">Play Again</button>
+      <button onclick="resetApp()">Play Again</button>
     </div>
   </div>
 
@@ -345,61 +433,65 @@
   }
 ];
 
-    let gameState = {
-      players: [],
-      currentIndex: 0,
-      activePair: null
-    };
+    let isMulti = false;
+    let isHost = false;
+    let peer = null;
+    let hostConn = null;
+    let clientConnections = [];
+    let hostPlayers = [];
 
-    let countdown = null;
-    let secondsLeft = 60;
+    let gameState = { players: [], currentIndex: 0, activePair: null };
+    let countdown = null, secondsLeft = 60;
 
-    // Populate categories
-    const categorySelect = document.getElementById("category-select");
-    WORD_PACKS.forEach((pack, idx) => {
-      const opt = document.createElement("option");
-      opt.value = idx;
-      opt.textContent = pack.category;
-      categorySelect.appendChild(opt);
+    // Populate Category Dropdowns
+    ['category-select', 'multi-category-select'].forEach(id => {
+      const select = document.getElementById(id);
+      WORD_PACKS.forEach((pack, idx) => {
+        const opt = document.createElement("option");
+        opt.value = idx;
+        opt.textContent = pack.category;
+        select.appendChild(opt);
+      });
     });
 
-    function checkCustomOption() {
-      const isCustom = WORD_PACKS[categorySelect.value].isCustom;
-      document.getElementById("custom-words-wrapper").classList.toggle("hidden", !isCustom);
+    function checkCustomOption(selectId, wrapperId) {
+      const isCustom = WORD_PACKS[document.getElementById(selectId).value].isCustom;
+      document.getElementById(wrapperId).classList.toggle("hidden", !isCustom);
     }
 
     function showView(viewId) {
-      ["view-lobby", "view-handoff", "view-reveal", "view-play", "view-vote", "view-result"].forEach(id => {
+      ["view-mode", "view-single-setup", "view-multi-choice", "view-host-lobby", "view-join", "view-client-waiting", "view-handoff", "view-reveal", "view-play", "view-vote", "view-result"].forEach(id => {
         document.getElementById(id).classList.toggle("hidden", id !== viewId);
       });
     }
 
-    function startGame() {
-      const rawNames = document.getElementById("players-input").value;
-      const names = rawNames.split(",").map(n => n.trim()).filter(n => n.length > 0);
+    function setupSingleMode() {
+      isMulti = false;
+      showView("view-single-setup");
+    }
 
-      if (names.length < 3) {
-        alert("Enter at least 3 player names.");
-        return;
-      }
+    function setupMultiMode() {
+      isMulti = true;
+      showView("view-multi-choice");
+    }
 
-      const pack = WORD_PACKS[categorySelect.value];
+    /* ================= SINGLE DEVICE LOGIC ================= */
+    function startSingleGame() {
+      const names = document.getElementById("single-players-input").value.split(",").map(n => n.trim()).filter(Boolean);
+      if (names.length < 3) return alert("Enter at least 3 players.");
+
+      const pack = WORD_PACKS[document.getElementById("category-select").value];
       let selectedPair;
-
       if (pack.isCustom) {
-        const civ = document.getElementById("custom-civilian").value.trim();
-        const imp = document.getElementById("custom-imposter").value.trim();
-        if (!civ || !imp) {
-          alert("Please fill in both custom words.");
-          return;
-        }
+        const civ = document.getElementById("custom-civ-single").value.trim();
+        const imp = document.getElementById("custom-imp-single").value.trim();
+        if (!civ || !imp) return alert("Fill in both custom words.");
         selectedPair = { civilian: civ, imposter: imp };
       } else {
         selectedPair = pack.pairs[Math.floor(Math.random() * pack.pairs.length)];
       }
 
       const imposterIndex = Math.floor(Math.random() * names.length);
-
       gameState.activePair = selectedPair;
       gameState.players = names.map((name, i) => ({
         name,
@@ -425,6 +517,135 @@
       showView("view-reveal");
     }
 
+    function handleNextClick() {
+      if (!isMulti) {
+        gameState.currentIndex++;
+        if (gameState.currentIndex < gameState.players.length) {
+          promptHandoff();
+        } else {
+          startCluePhase();
+        }
+      } else {
+        // Multi-device client clicked continue
+        showView("view-client-waiting");
+        document.getElementById("client-wait-msg").textContent = "Word memorized! Join the group discussion.";
+      }
+    }
+
+    /* ================= MULTI-DEVICE LOGIC (WebRTC) ================= */
+    function generateRoomCode() {
+      const letters = "ABCDEFGHJKLMNPQRSTUVWXYZ";
+      let code = "";
+      for (let i = 0; i < 4; i++) code += letters.charAt(Math.floor(Math.random() * letters.length));
+      return code;
+    }
+
+    function startHostLobby() {
+      isHost = true;
+      const roomCode = generateRoomCode();
+      const peerId = "guess-imposter-" + roomCode;
+      peer = new Peer(peerId);
+
+      peer.on('open', () => {
+        document.getElementById("host-room-code").textContent = roomCode;
+        hostPlayers = [{ name: "Host (You)", conn: null }];
+        renderHostPlayers();
+        showView("view-host-lobby");
+      });
+
+      peer.on('connection', conn => {
+        conn.on('data', data => {
+          if (data.type === 'JOIN') {
+            clientConnections.push(conn);
+            hostPlayers.push({ name: data.name, conn: conn });
+            renderHostPlayers();
+          }
+        });
+      });
+
+      peer.on('error', err => {
+        alert("Peer connection error. Please try creating a room again.");
+        console.error(err);
+      });
+    }
+
+    function renderHostPlayers() {
+      document.getElementById("connected-count").textContent = hostPlayers.length;
+      const list = document.getElementById("host-player-list");
+      list.innerHTML = "";
+      hostPlayers.forEach(p => {
+        const li = document.createElement("li");
+        li.textContent = p.name;
+        list.appendChild(li);
+      });
+    }
+
+    function joinRoom() {
+      const name = document.getElementById("join-player-name").value.trim();
+      const code = document.getElementById("join-room-code").value.trim().toUpperCase();
+      if (!name || code.length !== 4) return alert("Enter your name and a 4-letter room code.");
+
+      peer = new Peer();
+      peer.on('open', () => {
+        hostConn = peer.connect("guess-imposter-" + code);
+        hostConn.on('open', () => {
+          hostConn.send({ type: 'JOIN', name });
+          showView("view-client-waiting");
+        });
+
+        hostConn.on('data', data => {
+          if (data.type === 'START_GAME') {
+            document.getElementById("current-player-name").textContent = name;
+            document.getElementById("secret-word-display").textContent = data.word;
+            hideWord();
+            document.getElementById("next-player-btn").classList.add("hidden");
+            showView("view-reveal");
+          }
+        });
+      });
+
+      peer.on('error', () => {
+        alert("Could not connect to room. Verify the 4-letter code.");
+      });
+    }
+
+    function startMultiGame() {
+      if (hostPlayers.length < 3) return alert("Need at least 3 players to start.");
+
+      const pack = WORD_PACKS[document.getElementById("multi-category-select").value];
+      let selectedPair;
+      if (pack.isCustom) {
+        const civ = document.getElementById("custom-civ-multi").value.trim();
+        const imp = document.getElementById("custom-imp-multi").value.trim();
+        if (!civ || !imp) return alert("Fill in both custom words.");
+        selectedPair = { civilian: civ, imposter: imp };
+      } else {
+        selectedPair = pack.pairs[Math.floor(Math.random() * pack.pairs.length)];
+      }
+
+      const imposterIndex = Math.floor(Math.random() * hostPlayers.length);
+      gameState.activePair = selectedPair;
+      gameState.players = hostPlayers.map((p, i) => ({
+        name: p.name,
+        isImposter: i === imposterIndex,
+        word: i === imposterIndex ? selectedPair.imposter : selectedPair.civilian
+      }));
+
+      // Broadcast words to joined phones
+      hostPlayers.forEach((p, i) => {
+        if (p.conn) {
+          p.conn.send({
+            type: 'START_GAME',
+            word: gameState.players[i].word
+          });
+        }
+      });
+
+      // Host views their own word or controls round directly from screen
+      startCluePhase();
+    }
+
+    /* ================= GAMEPLAY CONTROLS ================= */
     function showWord() {
       if (navigator.vibrate) navigator.vibrate(40);
       document.getElementById("secret-word-display").classList.remove("hidden");
@@ -437,30 +658,13 @@
       document.getElementById("card-placeholder").classList.remove("hidden");
     }
 
-    // Attach reliable mobile/desktop peek listeners
     const peekBtn = document.getElementById("peek-btn");
     ['mousedown', 'touchstart'].forEach(evt => {
-      peekBtn.addEventListener(evt, (e) => {
-        e.preventDefault();
-        showWord();
-      }, { passive: false });
+      peekBtn.addEventListener(evt, (e) => { e.preventDefault(); showWord(); }, { passive: false });
     });
-
     ['mouseup', 'mouseleave', 'touchend', 'touchcancel'].forEach(evt => {
-      peekBtn.addEventListener(evt, (e) => {
-        e.preventDefault();
-        hideWord();
-      }, { passive: false });
+      peekBtn.addEventListener(evt, (e) => { e.preventDefault(); hideWord(); }, { passive: false });
     });
-
-    function nextPlayer() {
-      gameState.currentIndex++;
-      if (gameState.currentIndex < gameState.players.length) {
-        promptHandoff();
-      } else {
-        startCluePhase();
-      }
-    }
 
     function startCluePhase() {
       const shuffled = [...gameState.players].sort(() => Math.random() - 0.5);
@@ -530,13 +734,14 @@
         details.innerHTML = `You voted out the imposter: <strong>${imposter.name}</strong>!<br><br>Civilian Word: <strong>${gameState.activePair.civilian}</strong><br>Imposter Word: <strong>${gameState.activePair.imposter}</strong>`;
       } else {
         title.textContent = "🕵️ Imposter Wins!";
-        details.innerHTML = `<strong>${eliminatedPlayer.name}</strong> was innocent!<br>The imposter was <strong>${imposter.name}</strong>.<br><br>Civilian Word: <strong>${gameState.activePair.civilian}</strong><br>Imposter Word: <strong>${gameState.activePair.imposter}</strong>`;
+        details.innerHTML = `<strong>${eliminatedPlayer.name}</strong> was innocent!<br>The real imposter was <strong>${imposter.name}</strong>.<br><br>Civilian Word: <strong>${gameState.activePair.civilian}</strong><br>Imposter Word: <strong>${gameState.activePair.imposter}</strong>`;
       }
       showView("view-result");
     }
 
-    function resetGame() {
-      showView("view-lobby");
+    function resetApp() {
+      if (peer) peer.destroy();
+      location.reload();
     }
   </script>
 </body>
