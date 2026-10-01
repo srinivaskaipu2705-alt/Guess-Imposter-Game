@@ -1,0 +1,20 @@
+<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 512 512" width="100%" height="100%">
+  <!-- Background Rounded Badge -->
+  <rect width="512" height="512" rx="110" fill="#0f172a"/>
+  
+  <!-- Glowing Border -->
+  <rect x="16" y="16" width="480" height="480" rx="94" fill="none" stroke="#38bdf8" stroke-width="12" opacity="0.6"/>
+
+  <!-- Imposter Hat -->
+  <path d="M136 210 C150 140, 362 140, 376 210 Z" fill="#38bdf8"/>
+  <ellipse cx="256" cy="215" rx="170" ry="24" fill="#0284c7"/>
+
+  <!-- Spy Sunglasses -->
+  <path d="M160 260 H230 C240 260 245 285 235 310 C220 340 160 340 145 310 C135 285 145 260 160 260 Z" fill="#f8fafc"/>
+  <path d="M352 260 H282 C272 260 267 285 277 310 C292 340 352 340 367 310 C377 285 367 260 352 260 Z" fill="#f8fafc"/>
+  <line x1="228" y1="275" x2="284" y2="275" stroke="#f8fafc" stroke-width="10" stroke-linecap="round"/>
+
+  <!-- Trench Coat Collar -->
+  <path d="M120 440 L210 370 L256 410 L302 370 L392 440 Z" fill="#1e293b" stroke="#38bdf8" stroke-width="8"/>
+</svg>
+
