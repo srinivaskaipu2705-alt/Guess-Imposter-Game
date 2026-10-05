@@ -298,46 +298,137 @@
     };
 
     const WORD_PACKS = [
-      {
-        category: "Vehicles & Transport",
-        pairs: [
-          { civilian: "Car", imposter: "Motorcycle" },
-          { civilian: "Electric Car", imposter: "Gasoline Car" },
-          { civilian: "Taxi / Uber", imposter: "City Bus" },
-          { civilian: "F1 Race Car", imposter: "Go-Kart" },
-          { civilian: "Helicopter", imposter: "Airplane" },
-          { civilian: "Bicycle", imposter: "Electric Scooter" },
-          { civilian: "Cruise Ship", imposter: "Submarine" }
-        ]
-      },
-      {
-        category: "Food & Drinks",
-        pairs: [
-          { civilian: "Coffee", imposter: "Tea" },
-          { civilian: "Pancake", imposter: "Waffle" },
-          { civilian: "Butter", imposter: "Margarine" },
-          { civilian: "Pizza", imposter: "Flatbread" },
-          { civilian: "Burger", imposter: "Hot Dog" }
-        ]
-      },
-      {
-        category: "Movies & Pop Culture",
-        pairs: [
-          { civilian: "Harry Potter", imposter: "Lord of the Rings" },
-          { civilian: "Marvel (MCU)", imposter: "DC Comics" },
-          { civilian: "Star Wars", imposter: "Star Trek" },
-          { civilian: "Barbie", imposter: "Oppenheimer" }
-        ]
-      },
-      {
-        category: "Everyday Tech",
-        pairs: [
-          { civilian: "Smartphone", imposter: "Tablet" },
-          { civilian: "Laptop", imposter: "Desktop PC" },
-          { civilian: "Headphones", imposter: "Earbuds" }
-        ]
-      }
-    ];
+  {
+    category: "Vehicles & Transport",
+    pairs: [
+      { civilian: "Car", imposter: "Motorcycle" },
+      { civilian: "Electric Car", imposter: "Gasoline Car" },
+      { civilian: "Taxi / Uber", imposter: "City Bus" },
+      { civilian: "F1 Race Car", imposter: "Go-Kart" },
+      { civilian: "Subway Train", imposter: "High-Speed Rail" },
+      { civilian: "Helicopter", imposter: "Airplane" },
+      { civilian: "Bicycle", imposter: "Electric Scooter" },
+      { civilian: "Cruise Ship", imposter: "Submarine" }
+    ]
+  },
+  {
+    category: "Movies & Pop Culture",
+    pairs: [
+      { civilian: "Harry Potter", imposter: "Lord of the Rings" },
+      { civilian: "Marvel (MCU)", imposter: "DC Comics" },
+      { civilian: "Star Wars", imposter: "Star Trek" },
+      { civilian: "Barbie", imposter: "Oppenheimer" },
+      { civilian: "Batman", imposter: "Spider-Man" },
+      { civilian: "Netflix", imposter: "Cinema / Theater" },
+      { civilian: "TikTok", imposter: "Instagram Reels" },
+      { civilian: "Spotify", imposter: "YouTube" }
+    ]
+  },
+  {
+    category: "Sports & Athletics",
+    pairs: [
+      { civilian: "Soccer / Football", imposter: "Basketball" },
+      { civilian: "Tennis", imposter: "Badminton" },
+      { civilian: "Cricket", imposter: "Baseball" },
+      { civilian: "Surfing", imposter: "Snowboarding" },
+      { civilian: "Boxing", imposter: "Wrestling (WWE)" },
+      { civilian: "Marathon", imposter: "100m Sprint" },
+      { civilian: "Gym / Weightlifting", imposter: "CrossFit" },
+      { civilian: "Pool / Billiards", imposter: "Bowling" }
+    ]
+  },
+  {
+    category: "Spicy / 18+ Party",
+    pairs: [
+      { civilian: "One-Night Stand", imposter: "Blind Date" },
+      { civilian: "Tinder", imposter: "Hinge" },
+      { civilian: "Strip Club", imposter: "Nightclub" },
+      { civilian: "Tequila Shots", imposter: "Espresso Shots" },
+      { civilian: "Skinny Dipping", imposter: "Hot Tub" },
+      { civilian: "Hangover", imposter: "Food Poisoning" },
+      { civilian: "Walk of Shame", imposter: "Sneaking In Late" },
+      { civilian: "Flirting", imposter: "Harassment" }
+    ]
+  },
+  {
+    category: "Food & Drinks",
+    pairs: [
+      { civilian: "Coffee", imposter: "Tea" },
+      { civilian: "Pancake", imposter: "Waffle" },
+      { civilian: "Butter", imposter: "Margarine" },
+      { civilian: "Pizza", imposter: "Flatbread" },
+      { civilian: "Burger", imposter: "Hot Dog" },
+      { civilian: "Red Wine", imposter: "Grape Juice" },
+      { civilian: "Sushi", imposter: "Sashimi" },
+      { civilian: "Cocktail", imposter: "Mocktail" }
+    ]
+  },
+  {
+    category: "Everyday Tech",
+    pairs: [
+      { civilian: "Smartphone", imposter: "Tablet" },
+      { civilian: "Laptop", imposter: "Desktop PC" },
+      { civilian: "Headphones", imposter: "Earbuds" },
+      { civilian: "Smartwatch", imposter: "Fitness Tracker" },
+      { civilian: "Wi-Fi", imposter: "Mobile 5G" },
+      { civilian: "PlayStation", imposter: "Xbox" }
+    ]
+  },
+  {
+    category: "Animals & Nature",
+    pairs: [
+      { civilian: "Dog", imposter: "Wolf" },
+      { civilian: "Lion", imposter: "Tiger" },
+      { civilian: "Dolphin", imposter: "Shark" },
+      { civilian: "Crocodile", imposter: "Alligator" },
+      { civilian: "Butterfly", imposter: "Moth" },
+      { civilian: "Frog", imposter: "Toad" },
+      { civilian: "Penguin", imposter: "Puffin" },
+      { civilian: "Bee", imposter: "Wasp" }
+    ]
+  },
+  {
+    category: "Work & School",
+    pairs: [
+      { civilian: "Zoom Call", imposter: "In-Person Meeting" },
+      { civilian: "Boss", imposter: "Intern" },
+      { civilian: "Homework", imposter: "Overtime Work" },
+      { civilian: "Final Exam", imposter: "Pop Quiz" },
+      { civilian: "Whiteboard", imposter: "Chalkboard" },
+      { civilian: "Ballpoint Pen", imposter: "Pencil" },
+      { civilian: "Resume / CV", imposter: "LinkedIn Profile" },
+      { civilian: "Sick Leave", imposter: "Vacation Day" }
+    ]
+  },
+  {
+    category: "Travel & Places",
+    pairs: [
+      { civilian: "Hotel", imposter: "Airbnb" },
+      { civilian: "Passport", imposter: "Driver's License" },
+      { civilian: "Beach Vacation", imposter: "Mountain Hike" },
+      { civilian: "Airport Security", imposter: "Border Checkpoint" },
+      { civilian: "Suitcase", imposter: "Backpack" },
+      { civilian: "Amusement Park", imposter: "Water Park" },
+      { civilian: "Museum", imposter: "Art Gallery" }
+    ]
+  },
+  {
+    category: "Gaming & Geek Culture",
+    pairs: [
+      { civilian: "Minecraft", imposter: "Roblox" },
+      { civilian: "Fortnite", imposter: "Call of Duty" },
+      { civilian: "Pokemon", imposter: "Digimon" },
+      { civilian: "Nintendo Switch", imposter: "Steam Deck" },
+      { civilian: "Keyboard & Mouse", imposter: "Controller / Gamepad" },
+      { civilian: "Board Game", imposter: "Card Game" },
+      { civilian: "Dungeons & Dragons", imposter: "Chess" }
+    ]
+  },
+  {
+    category: "Custom Word Pair",
+    isCustom: true
+  }
+];
 
     let isMulti = false;
     let isHost = false;
